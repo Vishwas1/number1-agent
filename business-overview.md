@@ -37,12 +37,12 @@ Kash wants to meet Vishwas next week, and neither of them wants five rounds of W
 
 | Step | What happens | Who's involved |
 |---|---|---|
-| **1. Get set up** (once) | Each person signs in with Concordium, proves their name once, and gets a Number One with a Scheduler helper, registered under their verified identity | each person |
+| **1. Get set up** (once) | Each person installs the Number One app on their computer and connects their Concordium wallet. They get a Number One registered under their verified identity, share a private proof of their **name and age (18+)**, and link the Concordium ID App on their phone. | each person |
 | **2. Give permission** (once per friend) | Vishwas allows Kash's agent to **see when he's free on weekends** and **suggest meetings**, until February. He approves it in the Concordium ID App. | Vishwas |
 | **3. Find people** | Kash opens the app and sees a **directory of Number Ones**: Vishwas ✓, Pete ✓, each showing a verified name | Kash |
-| **4. Ask** | Kash picks Vishwas: *"Find a time for a drink next weekend."* **Vishwas is offline**, and that's fine. | Kash |
+| **4. Ask** | Kash picks Vishwas: *"Find a time for a drink next weekend."* **Vishwas is away from his desk**, and that's fine: his Number One keeps working. | Kash |
 | **5. Agents agree** | The two agents talk on their own. Vishwas's agent checks who's asking and what's allowed, then shares **only free/busy times**. Kash picks Sat 7pm, and the slot is **held as tentative**. Nothing is booked yet. | the agents |
-| **6. Confirm** | Kash confirms in his ID App. When **Vishwas comes online**, he sees *"Drink with Kash, Sat 7pm?"* and confirms in his ID App. Only then do both calendars update. | Kash, then Vishwas |
+| **6. Confirm** | Vishwas's **phone** shows *"Drink with Kash, Sat 7pm?"* in the Concordium ID App, and he confirms from wherever he is. Only then do both calendars update. Kash doesn't confirm again, because he asked for it. | Vishwas |
 
 Someone who hasn't given permission, like Pete, still receives Kash's request in their inbox, but their agent shares nothing until they say so.
 
@@ -61,7 +61,7 @@ sequenceDiagram
     V->>VN: Allow Kash's agent: weekend free/busy + suggest meetings
     V->>C: Approve permission in the Concordium ID App
 
-    Note over K,V: Vishwas is offline
+    Note over K,V: Vishwas is away from his desk
     K->>KN: Directory → Vishwas ✓ → "Find a time for a drink"
     KN->>VN: When is Vishwas free? (with Vishwas's permission slip)
     VN->>C: Is this really Kash's agent? Still active?
@@ -72,10 +72,9 @@ sequenceDiagram
     K->>KN: Saturday 7pm
     KN->>VN: Propose Sat 7pm
     VN-->>KN: Held as tentative, waiting for Vishwas
-    K->>C: Confirm in my ID App
 
-    Note over K,V: Vishwas comes online
-    VN->>V: Drink with Kash, Sat 7pm?
+    Note over K,V: Request reaches Vishwas's phone
+    VN->>V: Drink with Kash, Sat 7pm? (ID App)
     V->>C: Confirm in my ID App
     VN-->>KN: Confirmed
     Note over KN,VN: Both calendars updated · receipt recorded on Concordium
@@ -90,7 +89,7 @@ Six building blocks, all built on Concordium:
 |---|---|---|
 | 1 | **Verified owner** | Every user is identity-verified once through Concordium ID |
 | 2 | **Agent badge** | Every agent (the Number One and each helper) is registered on the **Concordium Agent Registry** under its owner, like a car registered to a driver |
-| 3 | **Prove who you are** | Each person proves their name once with Concordium ID, revealing **only their name**. Anyone can then check whose agent they're talking to, even while that person is offline. |
+| 3 | **Prove who you are** | Each person proves their name once with Concordium ID, revealing **only their name**. Anyone can then check whose agent they're talking to, even while that person is away. |
 | 4 | **Permission slips** | The owner signs exactly what another agent may do: which actions, which days, until when. Permissions can only shrink as they're passed on, and they can be withdrawn at any time. |
 | 5 | **Human in the loop** | Agents can negotiate while you're away, but anything that commits you, like a meeting or a new permission, waits for your confirmation in the Concordium ID App |
 | 6 | **Tamper-proof record** | Verifications and agent actions leave receipts on Concordium, so anyone can check later what was agreed |
@@ -105,6 +104,8 @@ flowchart LR
     N1 -->|manages| S
     PS -->|limit what| OA[Other people's agents]
 ```
+
+**Your agent runs on your own computer.** Your keys, calendar access and verification stay with you. The company only delivers messages between agents, and can't act as you.
 
 **What stays private:** calendars, preferences and personal details never go on the blockchain. Only badges, receipts and fingerprints of agreements do.
 
