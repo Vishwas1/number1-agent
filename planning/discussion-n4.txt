@@ -1,0 +1,39 @@
+Hi @Peter Marirosans
+
+In current version of  agent registry implementations we only allow one externallly owned account per agent (@Emil please correct me if I am wrong) but I was wondering could there be usecase where I would like to register one agent in the agent registery but I would like to link as many keys as I want to different usecases.
+
+for example, lets say I have ResearchBot  agent and I would like it  to have several external keys:
+
+GitHub key: proves commits, releases, or repository automation belong to this agent.
+API signing key: signs requests to some external service.
+Messaging key: signs messages on Discord/Telegram/Matrix.
+Encryption key: receives encrypted tasks or secrets.
+In this case, creating separate agents would be awkward because they are not different agents. They are the same agent using different credentials.
+
+whats your opinion? (edited) 
+12 repliesPeter Marirosans  [6:43 PM]
+Morning, yes, I came across this myself while developing different use cases. I can see the benefit of being able to say that the key being used has already been verified by the smart contract, and hence I can trust it … but it can also be placed in the Agent card as additional credentials the agent holds, with more details of the scope of the key. Given that our Agent Cards are hashed on-chain… it’s the same thing… whoever updated the agent card had access to the Concordium account that owns the NFT because the hash matches whats in the registry and therefore any info in the card must be true.
+
+So I can see making the CIS-8004 record hold multiple CIS-8 references being helpful, as it means the opposing agent can verify all the keys the agent is using with one check, rather than checking the agent card, but there is a workaround at the moment.
+
+But definitely no need for multiple NFTs for the same agent.
+Vishwas  [8:09 PM]
+Agree with agent card complexity. may be we can keep this in scope for future road map of agent registry
+[8:09 PM]Thanks
+[8:11 PM]today I came across because I was thinking about solution for usecase -  “Number 1” agent  you discussed with Kash. The number 1 might have control of many keys which it might want to use for different internal usecases (like booking my calander , ordering my grocessary etc.)
+Peter Marirosans  [8:29 PM]
+N1 deploys a crew … each crew gets a badge … N1 is for external comms and manages the other crew members. etc so for N1 it should be 1 key = 1 crew agent
+Vishwas  [1:21 PM]
+just to clarify, N1 it self an agent gets a badge , and then its agents crew get individual badges ?
+Emil  [2:34 PM]
+Does that mean N1 is the entry point and then hands off the conversation to continue directly with another agent? or does stand in the middle and forward messages? (edited) 
+Vishwas  [3:19 PM]
+yes atleast thats what I understand , like for example,  my N1, being an orchestrator , talks to your N1 and asking to setup meeting for example.
+Then N1 can then internally employee its crew agents (meeting schedular agent for example) to find get the task donePeter Marirosans  [3:58 PM]
+So the theory… and I stress the theory … Every crew member has a badge… that way, even if they talk to each other, they are verified. N1 should be the main agent who talks to the outside world, and crew-to-crew should be N1. But it also works if N1 needs to introduce a crew member to another N1.
+Vishwas  [4:11 PM]
+which means even crew need to have card / agent ID ?
+Peter Marirosans  [5:08 PM]
+Yes they do
+Vishwas  [5:24 PM]
+okay then it make sense to register their individual members
