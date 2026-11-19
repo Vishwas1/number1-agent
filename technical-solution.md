@@ -1,8 +1,8 @@
 # Number One: Technical Solution
-**Trust architecture for agent-to-agent communication on Concordium** · v0.5 · Nov 2026
+**Trust architecture for agent-to-agent communication on Concordium** · v0.6 · Nov 2026
 
 > Vision, problem statement, business value and the user journey are in **[business-overview.md](business-overview.md)**.
-> The POC scope will be defined next. Implementation details will go in `SPEC.md`.
+> POC scope: [poc-scope.md](poc-scope.md). Implementation details: [spec/](spec/README.md).
 
 ---
 
@@ -14,14 +14,15 @@
 | D1 | **No platform login.** Each owner runs their own N1 node (D7). A one-time setup in the **Browser Wallet** (ID-backed Concordium account X) links X to the node, deploys the N1 and produces the name + age proof. After that, the node authenticates to the relay with signatures from its agent key, verified against CIS-8004. Account X owns the agents and authorises the node's **delegation key** by publishing it in the Agent Card (D4). |
 | D2 | Every agent (N1 and each crew member) is **one CIS-8004 NFT** owned by X. Its keys are published in its Agent Card, whose hash is set on chain by X's own transaction: an **invocation key** (messages, handshake, using slips), a **delegation key** (N1 only: signing slips), and an encryption key. CIS-8 is not used. |
 | D3 | The N1 is the only agent that talks across owners. It **forwards** tasks to its crew and never hands them off. |
-| D4 | Authority is expressed as **capability chains** (the ZCAP pattern), every one rooted at account X. X signs no slips itself. It authorises its N1's **delegation key** (Ed25519, held by `n1-server`) and a **`delegationPolicy`** (the most any slip may grant, e.g. free/busy + propose, at most 90 days, no re-delegation) by publishing both in the Agent Card. The delegation key then signs slips ① and ② on the owner's click, with no wallet prompt. Verifiers resolve the root controller: X → X's N1 in CIS-8004 → card (hash checked) → delegation key + policy. Proofs use `eddsa-jcs-2022`. |
+| D4 | Authority is expressed as **capability chains** (the ZCAP pattern), every one rooted at account X. X signs no slips itself. It authorises its N1's **delegation key** (Ed25519, held by `n1-agent`) and a **`delegationPolicy`** (the most any slip may grant, e.g. free/busy + propose, at most 90 days, no re-delegation) by publishing both in the Agent Card. The delegation key then signs slips ① and ② on the owner's click, with no wallet prompt. Verifiers resolve the root controller: X → X's N1 in CIS-8004 → card (hash checked) → delegation key + policy. Proofs use `eddsa-jcs-2022`. |
 | D5 | An **account-credential ZK proof** from the Browser Wallet, made once at onboarding, binds the person's verified **name and age (18+)** to their agents. Onboarding needs only the Browser Wallet. **ID App consent** confirms every commitment, such as a meeting. |
 | D6 | **Two verifiers, two jobs.** A Verify & Access proof (VP) is bound to one fresh request and **can't be re-verified later** (confirmed by Concordium DevRel), so whoever checks a proof must create the request and check the answer in real time. **(a) Onboarding (name + 18+):** the **relay's attester** (a Credential Verification Service run by the company) verifies the proof and issues a signed attestation (D9). **(b) Consent:** **each node runs its own verifier** (Docker) to request and verify **its own owner's** ID App consent. Each verifier signs its VRA/VAA anchors with a service account: the company's well-known **attester account** for (a), and a low-value **node service account** for (b), **never owner account X**. |
 | D7 | **Each owner runs their own N1 node**, shipped as a **Docker Compose bundle**: the UI (localhost), the N1 server (agent keys, LLM API key), the Calendar Gateway (the owner's own calendar credentials) and the verifier (D6b). Everything that holds keys or data runs on the owner's machine. The **only centralised piece is the relay** (company-hosted): store-and-forward messaging, presence, the **attester** (D6a), the **directory index** (D9), and a cache of Agent Cards. It holds **no owner or agent keys and no calendar tokens**. Nodes connect to it outbound over WebSocket. **No private data goes on chain.** |
 | D8 | All calendar access goes through a **Calendar Gateway**. It is the only holder of the calendar credentials and acts only on valid capability invocations (5.4). It uses pluggable calendar adapters (mock, Google, …). |
 | D9 | **Directory: indexed by the relay, verified by each node.** CIS-8004 holds agents from many apps, and the chain can't be queried by tag, so discovery needs an index. **Membership:** at onboarding the relay's attester creates a fresh request (context: agent #42, account X, nonce). The owner answers from the Browser Wallet. The attester verifies the proof, checks it resolves to X and that X owns #42, anchors the VAA, and signs an **attestation** (agent, owner X, name, 18+, VAA reference, expiry). **Index:** the relay lists attested agents with their attestations, cards and presence. **Verify:** each node checks every entry before showing it: the agent is active in CIS-8004 and owned by X, the card hash matches, the attestation signature comes from the published attester key, and its VAA is on chain. The index can **hide** an agent but **can't add** one that isn't registered on chain. A false name would need a false attestation, which is anchored and auditable (TB14). Being listed grants nothing. |
-| D10 | **First contact, then a reactive grant:** any verified N1 may send a `meeting.request` to another N1. It lands in the receiving owner's **inbox**, and nothing is shared. When the owner is back at their desk, they **allow** the requester's agent from the inbox, choosing the scope (e.g. weekend free/busy + propose, until Feb). Their node's delegation key signs slip ② within the card's `delegationPolicy` (D4), with no wallet prompt. Slip ② is sent to the requester's N1, which retries automatically. Granting directly from the directory is a shortcut. Grants are per peer and need the owner present. Owner-away negotiation (D11) works only with peers already allowed. |
+| D10 | **First contact, then a reactive grant:** any verified N1 may send a `contact.request` to another N1. It lands in the receiving owner's **inbox**, and nothing is shared. When the owner is back at their desk, they **allow** the requester's agent from the inbox, choosing the scope (e.g. weekend free/busy + propose, until Feb). Their node's delegation key signs slip ② within the card's `delegationPolicy` (D4), with no wallet prompt. Slip ② is sent to the requester's N1, which retries automatically. Granting directly from the directory is a shortcut. Grants are per peer and need the owner present. Owner-away negotiation (D11) works only with peers already allowed. |
 | D11 | **Owner away:** both nodes keep running while their owners are away from their desks. Within existing slips, N1s negotiate on their own. An agreed slot is held as **tentative** until the **approver** (the owner receiving the request) **confirms in the ID App on their phone**. The request is pushed through the WalletConnect session paired at setup. The requester's slot choice in their own local UI is their intent. |
+| D12 | **Crews are plug-in modules.** An N1's capabilities (Calendar first; dietary, notes… later) are **crew modules**: a module in the N1 (actions, caveats, message types, intents, consent text) plus its own **gateway** (the only holder of that resource's data, same `/v1/invoke` contract), plus a **card entry**. The Agent Card lists installed `crews` and a `delegationPolicy` per crew. Resources are typed (`<crew>:…:<X>`), and actions and messages are namespaced (`calendar.freebusy.read`). Each owner chooses crews once at setup, inside the `register` transaction. Adding or removing a crew later is one card update (`setAgentURI`) signed by X, and **removing a crew revokes every slip for it** (peers' slips no longer verify). The **commitment flow** (propose → tentative hold → approver consent in the ID App → execute at the gateway → confirm) is part of the core and shared by every crew; a crew only supplies its negotiation messages and commitment hooks (validate, re-check, consent text, execute). The core and `trust-lib` never change for a new crew. On-chain crew *agents* (own NFT, slip ③, TB2) plug into the same module later. |
 
 ## 2. Architecture
 ```mermaid
@@ -79,13 +80,13 @@ Human ─KYC─► Identity Provider ─issues─► Concordium ID ─► Accoun
 | TB3 | Agent ↔ calendar | an agent bypassing its slips, or over-broad access | **Calendar Gateway**: the only holder of the token, acts only on valid invocations; minimal OAuth scopes | ❌ |
 | TB4 | N1 ↔ N1 identity | impostor or revoked agent | Registry lookup + card hash check + signed handshake | ✅ |
 | TB5 | Agent ↔ person | real person's proof relayed to an impostor; a stale or replayed proof | A fresh account-credential proof at onboarding (name + 18+), requested and verified by the relay's attester. It must resolve to X, the agent's owner, and its context names the agent. The result is a signed attestation with an anchored VAA and an expiry (re-attest after it). Peers check the attestation and its VAA, plus live ownership in CIS-8004, even while the owner is away. | ✅ ¹ |
-| TB6 | Permissions | stranger or out-of-scope request; a compromised node over-granting | Slip signed by the delegation key that X published in the Agent Card, within its `delegationPolicy`, checked on every request. Without a slip, only `meeting.request` is accepted and nothing is shared. A compromised node can grant at most what the policy allows (never `event.insert`). | ✅ / ⚠️ |
+| TB6 | Permissions | stranger or out-of-scope request; a compromised node over-granting | Slip signed by the delegation key that X published in the Agent Card, within its `delegationPolicy`, checked on every request. Without a slip, only `contact.request` is accepted and nothing is shared. A compromised node can grant at most what the policy allows (never `calendar.event.insert`). | ✅ / ⚠️ |
 | TB7 | Data minimization | oversharing | Sharing tiers (free/busy only for friends) | ❌ |
 | TB8 | Message integrity | forgery, replay, prompt injection | Signed envelopes, nonces, strict message types | ❌ |
 | TB9 | Transport | interception by the shared relay | End-to-end encryption to the recipient's card key; the relay sees nothing. This matters more now that the relay is shared and third-party hosted. | ❌ |
 | TB10 | Commitments | agent commits without the owner | The slot stays tentative until the **approver's ID App consent** for that exact slot. The approver's Gateway inserts only with that consent; the requester's Gateway inserts on the requester's own choice in their local UI plus the approver's confirmation. | ✅ / ⚠️ ² |
 | TB11 | Audit | "my agent never agreed" | Signed logs, anchored on chain | ✅ |
-| TB12 | Revocation | stolen key still trusted | Registry revoke / key rotation; revoking a capability cascades. **Rotating the delegation key** (new card + `setMetadata` signed by X) invalidates every slip it signed. | ✅ / ⚠️ |
+| TB12 | Revocation | stolen key still trusted | Registry revoke / key rotation; revoking a capability cascades. **Rotating the delegation key** (new card + `setAgentURI` signed by X) invalidates every slip it signed. | ✅ / ⚠️ |
 | TB13 | Verifiers (attester + per node) | the attester vouching for the wrong person; a node's verifier lying about its own owner's consent | Attester: requests are bound to the agent and X, every attestation's VAA is anchored from the well-known attester account (auditable), and peers re-check ownership live. Node verifier: it only ever speaks for its own owner, and peers rely on the approver's signed confirmation plus the anchored VAA. | ✅ |
 | TB14 | Relay (the only centralised component) | false attestations; hidden directory entries; dropped or delayed messages; false presence; tampered cached cards; reading message contents | **Trusted only for attestations (POC).** Everything else is verified: attestations against the attester key and VAA, entries against CIS-8004, cards against on-chain hashes, envelopes by agent-key signatures (E2E-encrypted in production, TB9). It holds no owner or agent keys. Worst case: a false attestation (auditable) or censorship and unavailability, never impersonation in messages, slips or consent. Production: several attesters or indexers. | ❌ ours |
 
@@ -140,7 +141,7 @@ Kash has a mirror-image chain for **his** calendar and inserts the event there w
 **What it is**
 - The **only component holding the calendar credentials.** Agents never see them.
 - **Pluggable adapters** behind one fixed API: a mock calendar store (POC), Google Calendar (stretch), others later.
-- It runs on the client (D7), as a separate, non-LLM process with a small fixed API: `freebusy.read`, `event.insert`.
+- It runs on the client (D7), as a separate, non-LLM process with a small fixed API: `calendar.freebusy.read`, `calendar.event.insert`.
 - It acts **only on a valid invocation**:
   1. verify the chain back to account X
   2. check the caller is the slip's holder
@@ -174,7 +175,7 @@ sequenceDiagram
     KN->>R: verify #42: active? owned by X? attestation "Vishwas, 18+" valid + VAA on chain?
     KN->>VN: handshake (signed)
     VN->>R: #17 active? owner verified?
-    KN->>VN: availability.request + slip ② (signed by Vishwas's delegation key)
+    KN->>VN: calendar.availability.request + slip ② (signed by Vishwas's delegation key)
     VN->>VN: validate chain + limits (A0)
     VN->>SC: single-use slip ③
     SC->>GW: read free/busy + slip ③
@@ -182,7 +183,7 @@ sequenceDiagram
     SC-->>VN: free/busy
     VN-->>KN: slots (friend tier)
     K->>KN: pick Sat 7pm in his local UI (Kash's intent)
-    KN->>VN: meeting.propose Sat 7pm
+    KN->>VN: calendar.meeting.propose Sat 7pm
     VN-->>KN: tentative hold (owner away)
     Note over KN,VN: nothing written to any calendar yet
     VN->>V: consent request pushed to ID App (WalletConnect): "Drink with Kash, Sat 7pm" (A1)
