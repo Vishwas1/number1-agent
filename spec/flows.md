@@ -19,7 +19,7 @@ sequenceDiagram
     UI->>N1: link {X, sig} (verified against X's keys on chain)
     UI->>N1: setup/crews {calendar} (one-time choice)
     UI->>N1: agent/prepare
-    N1->>N1: generate invocation, delegation, encryption keys; build card (crews + per-crew policy)
+    N1->>N1: generate invocation, delegation, encryption keys · build card (crews + per-crew policy)
     N1->>RS: PUT /cards → uri, hash
     N1-->>UI: registerParams
     UI->>BW: sendTransaction register(uri, hash, app=number-one/1)
@@ -37,8 +37,8 @@ sequenceDiagram
     RS->>CH: credRegId → X? agentOf → owner X?
     RS-->>N1: signed attestation (directory updated)
     N1->>N1: verifyAttestation (pinned key) ✓
-    UI->>N1: idapp/pair → wcUri (QR); owner scans with ID App
-    UI->>N1: crews/calendar/setup → mock calendar connected; slip ① signed by the delegation key
+    UI->>N1: idapp/pair → wcUri (QR) · owner scans with ID App
+    UI->>N1: crews/calendar/setup → mock calendar connected · slip ① signed by the delegation key
 ```
 Specs: [ui.md](node/ui.md) §3 · [agent-card.md](shared/agent-card.md) · [attestation.md](shared/attestation.md) · [relay-service.md](relay/relay-service.md) §3.3
 
@@ -52,7 +52,7 @@ sequenceDiagram
     actor V as Vishwas
 
     K->>KN: directory → Vishwas ✓ → "find a time"
-    KN->>R: GET /directory; verify #42 (chain + attestation)
+    KN->>R: GET /directory · verify #42 (chain + attestation)
     KN->>VN: session.hello / welcome / confirm (both verify each other)
     KN->>VN: contact.request {topic, window}
     VN->>VN: no slip for #17 → inbox (OK_FIRST_CONTACT)
@@ -83,7 +83,7 @@ sequenceDiagram
     VN-->>KN: calendar.availability.response {options} (friend tier, Sat–Sun, 30 min)
     K->>KN: pick Sat 20:00 (owner choice)
     KN->>VN: commitment.propose {crew: calendar, commitment} + invocation(②, calendar.meeting.propose)
-    VN->>VN: validate + conflicts + recheck (calendar module); hold (tentative); commitmentHash
+    VN->>VN: validate + conflicts + recheck (calendar module) · hold (tentative) · commitmentHash
     VN-->>KN: commitment.tentative {commitmentHash}
     VN->>VV: create-verification-request (consent:markdown + names)
     VN->>IDA: request_verifiable_presentation_v1 (paired session)
