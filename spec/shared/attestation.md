@@ -42,7 +42,7 @@ A Verify & Access proof can't be re-verified later. So the relay's **attester** 
 | `subject.agent`, `subject.owner` | The agent and account X named in the VPR context; checked against the chain at issue time |
 | `claims` | Only what the VP revealed or proved. `ageOver18` is derived from the `dob` range statement. |
 | `evidence.vaaTx` | The VAA anchored by the relay's verifier from the **attester account** |
-| `evidence.auditRecordHash` | Hash of the verification audit record as anchored in the VAA (exact encoding per the Verifier Service; confirm in M0) |
+| `evidence.auditRecordHash` | Hash of the verification audit record as anchored in the VAA (exact encoding per the Verifier Service; confirm in the M1 spike) |
 | `expires` | `issued` + **90 days** (`ATTESTATION_TTL_DAYS`). After that, the owner re-attests. |
 
 ## 3. Attester key publication

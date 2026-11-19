@@ -20,7 +20,7 @@ See the compose file in [README.md](README.md) §1.
 
 - `connectionId` = `local:<commitmentId>` (there's no WalletConnect session; the UI talks to the Browser Wallet extension directly).
 - `auditRecordId` = a fresh UUID per consent, stored in `consents`.
-- The response fields for the audit record and the anchor transaction follow the Verify & Access guide. Confirm the exact names in M0 and map them in `n1-agent`'s consent module.
+- The response fields for the audit record and the anchor transaction follow the Verify & Access guide. Confirm the exact names in the M1 spike and map them in `n1-agent`'s consent module.
 
 ## 4. Costs
 Each consent anchors one VRA and one VAA from the service account. Budget about 2 `RegisterData` transactions per confirmed commitment. Top up the account manually on testnet.
@@ -31,5 +31,5 @@ Each consent anchors one VRA and one VAA from the service account. Budget about 
 
 ## 6. Tests
 - Health check on `:8001`.
-- Create + verify round trip on testnet with a Browser Wallet test account, `source: accountCredential`, empty statements (M0 spike).
+- Create + verify round trip on testnet with a Browser Wallet test account, `source: accountCredential`, empty statements (M1 spike).
 - A tampered VP is rejected (→ `CONSENT_INVALID`).

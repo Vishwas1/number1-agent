@@ -65,7 +65,7 @@ Calendar example of the VPR:
 }
 ```
 - `source: ["accountCredential"]` binds the answer to account X through `credRegId` (§5 check 2). This closes G2.
-- `statements: []` because nothing about the person needs proving; the binding to X is what matters. If the wallet requires at least one statement, use `RevealAttribute firstName` (check in the M0 spike).
+- `statements: []` because nothing about the person needs proving; the binding to X is what matters. If the wallet requires at least one statement, use `RevealAttribute firstName` (check in the M1 spike).
 - **No consent screen in the wallet.** The Browser Wallet doesn't render `consent:` contexts, so the human-readable text is shown **in the local UI** right before the wallet prompt, and the context string carries the commitment hash. That's acceptable because the local UI is the owner's own machine (TB1).
 - **Hold timeout: 24 hours.** If the owner doesn't approve, the hold is released and the requester gets `commitment.declined`.
 

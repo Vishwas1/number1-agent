@@ -8,7 +8,7 @@ How the POC proves the success criteria (S1–S8) and negative tests (NT1–NT11
 | Integration | Relay + 2–3 node bundles on one machine, on testnet ([local-dev.md](local-dev.md)) | F1–F6 from [flows.md](flows.md) |
 | Abstraction | A **fake crew** module + stub gateway in the test suite (no calendar code) | Proves a crew can be added without core changes: setup, grant, task, commitment, consent, remove |
 | Adversarial | `tools/evil-peer`: a CLI that authenticates to the relay as a test agent and sends crafted envelopes and invocations | NT1–NT11 |
-| Demo rehearsal | Real Browser Wallets (one browser profile per user) | The full demo script (M8) |
+| Demo rehearsal | Real Browser Wallets (one browser profile per user) | The full demo script (M6) |
 
 `tools/evil-peer` scenarios read fixtures from `tools/evil-peer/scenarios/*.json` and assert the **reason code** in the target node's trust log (`GET /api/events`).
 
@@ -45,11 +45,9 @@ How the POC proves the success criteria (S1–S8) and negative tests (NT1–NT11
 ## 4. Traceability: roadmap → spec
 | Milestone | Spec files |
 |---|---|
-| M1 | [trust-lib.md](shared/trust-lib.md), [identifiers-and-encoding.md](shared/identifiers-and-encoding.md), [node/README.md](node/README.md), [relay/README.md](relay/README.md) |
-| M2 | [agent-card.md](shared/agent-card.md), [attestation.md](shared/attestation.md), [relay/verifier.md](relay/verifier.md), [relay-service.md](relay/relay-service.md) §3.3, [ui.md](node/ui.md) §3 |
-| M3 | [relay-service.md](relay/relay-service.md) §3.1–3.2, [database.md](relay/database.md), [n1-agent.md](node/n1-agent.md) §5.1 |
-| M4 | [messages.md](shared/messages.md), [n1-agent.md](node/n1-agent.md) §5.2, §5.5 |
-| M5 | [capabilities.md](shared/capabilities.md), [crew-modules.md](shared/crew-modules.md), [crews/calendar.md](crews/calendar.md), [calendar-gateway.md](node/calendar-gateway.md) |
-| M6 | [consent.md](shared/consent.md), [node/verifier.md](node/verifier.md), [n1-agent.md](node/n1-agent.md) §5.3–5.4 |
-| M7 | [flows.md](flows.md) F4–F6, [ui.md](node/ui.md) §2 |
-| M8 | this file |
+| M1 Setup + foundations | [README.md](README.md), [local-dev.md](local-dev.md), [node/README.md](node/README.md), [relay/README.md](relay/README.md), [trust-lib.md](shared/trust-lib.md), [identifiers-and-encoding.md](shared/identifiers-and-encoding.md) |
+| M2 Onboarding + directory | [agent-card.md](shared/agent-card.md), [attestation.md](shared/attestation.md), [relay/verifier.md](relay/verifier.md), [relay-service.md](relay/relay-service.md) §3.2–3.4, [database.md](relay/database.md), [n1-agent.md](node/n1-agent.md) §5.1, [ui.md](node/ui.md) §3 |
+| M3 Agent-to-agent + permissions | [messages.md](shared/messages.md), [relay-service.md](relay/relay-service.md) §3.1, [capabilities.md](shared/capabilities.md), [n1-agent.md](node/n1-agent.md) §5.2, §5.5 |
+| M4 Crew framework + calendar | [crew-modules.md](shared/crew-modules.md), [crews/calendar.md](crews/calendar.md), [calendar-gateway.md](node/calendar-gateway.md) |
+| M5 Scheduling flow | [consent.md](shared/consent.md), [node/verifier.md](node/verifier.md), [n1-agent.md](node/n1-agent.md) §5.3–5.4, [flows.md](flows.md) F3 |
+| M6 Hardening + demo | [flows.md](flows.md) F4–F6, this file |

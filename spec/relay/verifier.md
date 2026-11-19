@@ -29,8 +29,8 @@ Concordium Credential Verification Service (`concordium/credential-verification-
   ]
 }
 ```
-- `source: ["accountCredential"]` is essential. It ties the proof to account X through `credRegId` (TB5). **G1:** confirm in the M0 spike that the Browser Wallet answers this request type.
-- **G1 is confirmed:** the Browser Wallet supports the Verify & Access flow (team check, Nov 2026). The M0 spike confirms the exact call and the name + age-range statements.
+- `source: ["accountCredential"]` is essential. It ties the proof to account X through `credRegId` (TB5).
+- **G1 is confirmed:** the Browser Wallet supports the Verify & Access flow (team check, Nov 2026). The M1 spike confirms the exact call and the name + age-range statements.
 - `issuers` are built from `TRUSTED_IDPS`.
 
 ## 3. Endpoints used by `relay-service`
@@ -43,6 +43,6 @@ Concordium Credential Verification Service (`concordium/credential-verification-
 Two `RegisterData` transactions per attestation (VRA + VAA). An attestation lasts 90 days, so with 3 demo users the cost is negligible.
 
 ## 5. Tests
-- Create + verify round trip with a Browser Wallet test account (M0 G1 spike).
+- Create + verify round trip with a Browser Wallet test account (M1 spike).
 - A proof without `firstName` is rejected by the relay (`SCHEMA_INVALID`).
 - A tampered VP fails verification.

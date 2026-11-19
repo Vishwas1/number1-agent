@@ -155,12 +155,13 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 | Browser Wallet answers a Verify & Access request with `source: accountCredential` and **empty statements** (consent) | week 1 spike | **critical** (confirms every meeting; supported per team check, exact call to confirm) |
 
 ## 10. Plan (4 weeks)
-| Week | Deliverable |
+Milestone details: [roadmap.md](roadmap.md).
+| Week | Milestones |
 |---|---|
-| **1** | **G1 spike** (name + age proof from the Browser Wallet) + Browser Wallet consent-proof check · local node skeleton incl. its own verifier · relay attester skeleton · wallet setup · N1 deployment on CIS-8004 |
-| **2** | Name + age attestation in onboarding · relay (messaging + directory index) · Docker Compose bundle · signed envelopes · handshake + verification · directory verification · first contact |
-| **3** | Slips + chain validation · Calendar Gateway + mock calendar + "My calendar" view · grant flow · owner-away negotiation + tentative hold |
-| **4** | Pending approvals + Browser Wallet confirmation · revocation · audit anchoring · chat UI + trust log · negative tests · demo video + `spec/` sync · *(stretch: Google Calendar adapter)* |
+| **1** | **M1** project setup + foundations (monorepo, compose, local relay + 2 nodes, `trust-lib`, wallet spikes) · start **M2** onboarding |
+| **2** | **M2** onboarding + directory (attestation, relay index, node verification) · **M3** agent-to-agent + permissions (messaging, first contact, Allow → slip ②) · start **M4** |
+| **3** | **M4** crew framework + calendar crew (gateway, slip ①, My calendar) · **M5** scheduling flow starts (intent, availability, options) |
+| **4** | **M5** commitment + Browser Wallet approval + event insert · **M6** hardening + demo (revocation, key rotation, audit anchoring, trust log, NT1–NT11, rehearsal, video, findings note) |
 
 ## 11. Risks
 | Risk | Impact | Mitigation |

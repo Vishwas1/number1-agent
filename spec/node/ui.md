@@ -46,4 +46,4 @@ The wallet is also used later for:
 ## 6. Tests
 - A Playwright smoke test of the wizard with a mocked wallet provider.
 - Directory and trust-log rendering from fixture SSE events.
-- Real wallet steps are covered by the M0 spikes and the demo rehearsal (M8).
+- Real wallet steps are covered by the M1 spikes and the demo rehearsal (M6).
