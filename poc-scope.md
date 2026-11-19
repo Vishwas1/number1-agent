@@ -1,5 +1,5 @@
 # Number One: POC Scope
-**Phase 1 · Calendar scheduling between two trusted agents** · v0.7 · Nov 2026
+**Phase 1 · Calendar scheduling between two trusted agents** · v0.8 · Nov 2026
 
 > Context: [business-overview.md](business-overview.md) · Architecture: [technical-solution.md](technical-solution.md) · Implementation details will go in `SPEC.md`.
 
@@ -20,7 +20,7 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 |---|---|---|
 | **Crew** | N1 + crew agents (e.g. Scheduler) | **N1 only.** The N1 calls the Calendar Gateway directly with slip ①. Crew design (TB2, slip ③) is not built. |
 | **Deployment** | Decentralised nodes + one relay | **Each user runs their own node** as a **Docker Compose bundle** (`ui`, `n1-server`, `calendar-gateway`, `verifier`) with their own agent keys, LLM API key, calendar and verifier. The **only centralised piece is the company-hosted relay** (messaging, attester, directory index). |
-| **Login** | Wallet-linked node | **No platform login.** The local app belongs to its owner. The wallet is used during setup and for signing grants. |
+| **Login** | Wallet-linked node | **No platform login.** The local app belongs to its owner. The wallet is used only during setup (and to rotate keys). |
 | **Onboarding** | Several apps | **Browser Wallet** for everything (connect wallet → deploy N1 → name + age proof), then a **one-time ID App pairing** (QR scan) for later consents |
 
 ## 3. Success criteria
@@ -28,8 +28,8 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 |---|---|---|
 | S1 | A user starts their **local node**, then in setup connects the **Browser Wallet**, deploys their N1 on CIS-8004, answers the relay attester's request with a **ZK proof of name and age (18+)** from the same wallet, receives a signed attestation, and pairs their ID App for later consent | TB1, TB4, TB5 |
 | S2 | Kash's node fetches the directory **from the relay's index**, verifies each entry against CIS-8004 and the attestation (signature + VAA on chain), and shows the verified owner name and an 18+ badge | TB4, TB5, TB14 |
-| S3 | **First contact:** Kash's N1 messages Pete's N1 (no slip). The request is accepted, and nothing is shared. | TB6 |
-| S4 | Vishwas has granted Kash's agent "free/busy on weekends" with a slip signed by his account | TB6, A2 |
+| S3 | **First contact + reactive grant:** Kash's N1 messages Pete's N1 (no slip). The request lands in Pete's inbox, and nothing is shared. Pete clicks **Allow** in his inbox, and his node signs slip ② with its delegation key. Kash's N1 retries and receives free/busy. | TB6, A2 |
+| S4 | Vishwas has granted Kash's agent "free/busy on weekends" (the same inbox flow, done earlier) with a slip signed by his node's delegation key | TB6, A2 |
 | S5 | **Owner away:** while Vishwas is away from his desk (his node running), his N1 shares free/busy only and holds a proposed slot as **tentative** | TB3, TB7, D11 |
 | S6 | **Confirmation:** the consent request reaches Vishwas's **ID App on his phone**. The meeting is written to the calendars only after he approves. | TB10 |
 | S7 | All negative tests (section 7) are rejected, with the reason shown in the trust log | TB4, TB6, TB8, TB10, TB12 |
@@ -41,18 +41,19 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 | **Node bundle + relay** | The components in section 5, deployed as described there | TB1, TB3, TB13, TB14 |
 | **Wallet setup** | During setup, the user connects the Browser Wallet and signs a link challenge, binding account X to their node. | TB1 |
 | **ID App pairing** | During setup, the node pairs with the owner's ID App (WalletConnect QR), so later consent requests reach the phone | TB10 |
-| **Agent deployment** | Register **one N1** per user on CIS-8004 (testnet), signed by X in the Browser Wallet; Agent Card | TB4 |
+| **Agent deployment** | `n1-server` generates the **invocation** and **delegation** Ed25519 keys. Register **one N1** per user on CIS-8004 (testnet), signed by X in the Browser Wallet, with the Agent Card (both public keys + `delegationPolicy`: free/busy + propose, at most 90 days, no re-delegation) and its hash | TB4, TB6 |
 | **Name + age proof** | In setup, the Browser Wallet produces an **account-credential ZK proof**: reveal `firstName`, `lastName`, and prove `dob` = 18+ without revealing the date. The **relay's attester** creates a fresh request (context: N1 #42, account X, nonce), verifies the proof, confirms it resolves to X (the owner of the N1), anchors the VAA, and returns a **signed attestation** (agent, X, name, 18+, VAA reference, 90-day expiry). The agent is added to the directory index. | TB5, TB13 |
 | **Directory** | **Indexed by the relay, verified by each node:** the relay lists attested Number One agents (attestation, Agent Card, presence). Each node verifies every entry: active in CIS-8004 and owned by X, card hash matches, attestation signed by the published attester key and not expired, VAA on chain. It then shows the verified name + 18+ badge. | D9, TB14 |
 | **Agent verification** | Registry lookup + card hash check + attestation check + signed handshake | TB4 |
-| **First contact** | `meeting.request` accepted from any verified N1; no data shared without a slip | TB6 |
-| **Capabilities** | Slips ① (owner → own N1) and ② (owner → peer N1), signed by X; chain validation; caveats: actions, days, expiry, tier, no re-delegation | TB6 |
+| **Calendar setup** | After agent deployment, the UI shows a **Calendar card**. The owner clicks it, connects the calendar (mock store), and the node issues **slip ①** (own N1 → own calendar), signed by the delegation key. The Calendar Gateway is a local tool, not a crew agent, so it isn't registered on CIS-8004. | TB3, TB6 |
+| **First contact + grant** | `meeting.request` accepted from any verified N1 into the owner's **inbox**; nothing shared without a slip. **Reactive grant:** the owner clicks **Allow** on the request, picks the scope (actions, days, expiry; within `delegationPolicy`), and the node signs slip ② with the delegation key. It's delivered to the requester's N1 (`capability.grant`), which retries automatically. Shortcut: allow from the directory. | TB6 |
+| **Capabilities** | Own minimal ZCAP implementation (no library; JCS + `eddsa-jcs-2022`). Slips ① (owner → own N1) and ② (owner → peer N1), signed by the delegation key; chain validation incl. root resolution (X → N1 → card → delegation key) and `delegationPolicy`; caveats: actions, days, expiry, tier, no re-delegation | TB6 |
 | **Calendar Gateway** | Non-LLM, the only holder of calendar access; `freebusy.read`, `event.insert`; acts only on valid invocations from the N1. **Mock calendar adapter** (JSON/SQLite per node) plus a small **"My calendar" view** in the local UI. | TB3 |
 | **Owner-away negotiation** | Nodes keep running; N1s negotiate within existing slips; the agreed slot is held as tentative | D11 |
 | **Confirmation** | **Approver only:** Vishwas's node (its own verifier) creates a consent request for the exact slot and pushes it to his ID App (phone), then verifies the reply. After he approves, his N1 sends Kash's N1 a signed confirmation with the VAA reference, and both Gateways insert the event. Pending consents also appear in the local UI. | TB10, TB13 |
 | **Messaging** | Signed envelopes, nonces, fixed message types, via the shared relay | TB8 |
 | **Sharing policy** | One tier only: **friend** (free/busy blocks) | TB7 |
-| **Revocation** | Revoke an N1 (CIS-8004) and revoke a slip | TB12 |
+| **Revocation** | Revoke an N1 (CIS-8004), revoke a slip, and rotate the delegation key (invalidates all its slips) | TB12 |
 | **Audit** | Signed, hash-chained log; root anchored with `RegisterData` on demand | TB11 |
 | **Chat UI** | Directory, conversation view (agent-to-agent messages), pending consents, trust log | — |
 
@@ -60,8 +61,8 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 ### 5.1 Node bundle (one per user, `docker-compose.yml` on the user's machine)
 | Service | Responsibilities | Holds | Talks to |
 |---|---|---|---|
-| **`ui`** (localhost) | Chat, directory, conversation view (agent-to-agent messages), pending consents, "My calendar" view, trust log. Setup wizard: Browser Wallet connect, sign the N1 registration, sign slips, name + age proof, ID App pairing QR. | Nothing sensitive | `n1-server` (local API); Browser Wallet (browser extension, in the user's browser) |
-| **`n1-server`** | The **N1 agent**: conversation state machine and negotiation · **trust engine**: `verifyAgent`, signed handshake, envelope signing and checks (nonces, schemas), slip chain validation, revocation list, sharing policy (friend tier) · **directory client**: fetches the relay's index and verifies each entry against CIS-8004 and the attestation (cached) · **WalletConnect client**: pushes consent requests to the owner's ID App even when the UI is closed · **audit log**: hash-chained, signed, anchors on demand · **trust-log events** for the UI | Agent signing key (encrypted keystore), LLM API key, slips (①, ② issued and received), revocation list, audit log, WalletConnect session | `ui`, `calendar-gateway`, `verifier`, relay (outbound WSS), testnet node (gRPC), LLM provider, ID App (WalletConnect) |
+| **`ui`** (localhost) | Chat, directory, conversation view (agent-to-agent messages), pending consents, "My calendar" view, trust log. Setup wizard: Browser Wallet connect, sign the N1 registration (card with keys + policy), name + age proof, ID App pairing QR, Calendar card. **Allow** buttons for grants. | Nothing sensitive | `n1-server` (local API); Browser Wallet (browser extension, in the user's browser) |
+| **`n1-server`** | The **N1 agent**: conversation state machine and negotiation · **trust engine**: `verifyAgent`, signed handshake, envelope signing and checks (nonces, schemas), **slip issuing** (delegation key, on the owner's click only) and chain validation, revocation list, sharing policy (friend tier) · **directory client**: fetches the relay's index and verifies each entry against CIS-8004 and the attestation (cached) · **WalletConnect client**: pushes consent requests to the owner's ID App even when the UI is closed · **audit log**: hash-chained, signed, anchors on demand · **trust-log events** for the UI | Invocation key + **delegation key** (encrypted keystore; never exposed to the LLM), LLM API key, slips (①, ② issued and received), revocation list, audit log, WalletConnect session | `ui`, `calendar-gateway`, `verifier`, relay (outbound WSS), testnet node (gRPC), LLM provider, ID App (WalletConnect) |
 | **`calendar-gateway`** | The only component with calendar access; fixed API `freebusy.read` / `event.insert`; acts only on a valid slip invocation (+ consent proof for inserts); returns free/busy blocks only | Calendar adapter: **mock store** (JSON/SQLite, pre-seeded); Google adapter as stretch | `n1-server` only |
 | **`verifier`** | Concordium Credential Verification Service: creates VPRs (anchors VRA) and verifies VPs (anchors VAA) for **its own owner's consent** only | **Node service account** key (not X), funded with test CCD | `n1-server`, testnet node (gRPC) |
 
@@ -78,7 +79,7 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 | System | Used for |
 |---|---|
 | **Concordium testnet** (public gRPC node) | CIS-8004 registry (agents, metadata, events for the directory), account keys for signature checks, VRA/VAA/audit anchors |
-| **Concordium Browser Wallet** | Owner account X: wallet link, N1 registration, signing slips, account-credential name + age proof |
+| **Concordium Browser Wallet** | Owner account X: wallet link, N1 registration (publishes card keys + `delegationPolicy`), key rotation, account-credential name + age proof |
 | **Concordium ID App** (phone) | Approver consent for meetings (via WalletConnect, paired once at setup) |
 | **LLM provider** | Intent parsing and reply drafting (owner's own API key) |
 | **WalletConnect relay** (public) | Transport between `n1-server` and the ID App |
@@ -104,8 +105,9 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 2. Setup: connect the Browser Wallet → deploy my N1 (sign the transaction).
 3. Setup: the relay's attester requests name + 18+. Vishwas answers from the Browser Wallet. The attester verifies it and returns a signed attestation, and the trust log shows "attested: Vishwas, 18+, owner = X" with the VAA transaction.
 4. Setup: scan a QR code with the ID App to pair it for later consent requests.
+5. Setup: click the **Calendar card** → connect the calendar (mock). The node issues slip ①, with no wallet prompt.
 
-**Setup (shown briefly):** Kash and Pete are onboarded the same way. Vishwas has already granted Kash's agent weekend free/busy (slip ② signed in the Browser Wallet).
+**Setup (shown briefly):** Kash and Pete are onboarded the same way. Vishwas allowed Kash's agent earlier, through the same inbox flow shown with Pete below (slip ②: weekend free/busy + propose, until Feb).
 
 **Happy path**
 1. Kash opens his local UI and the **directory**, fetched from the relay and verified by his node: Vishwas ✓ 18+, Pete ✓ 18+.
@@ -115,14 +117,15 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 5. Vishwas's **phone** shows *"Drink with Kash, Sat 7pm"* in the ID App. He approves from wherever he is.
 6. The event appears in both users' "My calendar" views. The audit is anchored, and the transaction is shown.
 
-**First contact**
+**First contact + reactive grant**
 7. Kash messages **Pete's** N1, which has no slip. The request lands in Pete's inbox, and the trust log shows "no slip → nothing shared".
+8. Pete opens his inbox and clicks **Allow** (weekend free/busy, until Feb). His node signs slip ② with its delegation key.
+9. Kash's N1 receives the slip, retries automatically, and gets Pete's free/busy slots.
 
 **Negative tests (each rejected, with the reason in the trust log)**
 1. Unregistered agent sends a request
 2. Revoked agent sends a request
 3. Impostor N1 claiming to be Vishwas's (attestation names a different agent or owner)
-11. Directory entry with a forged or expired attestation (dropped by Kash's node)
 4. Pete's N1 asks for free/busy without a slip
 5. Request outside the slip (weekday, or `event.insert`)
 6. Slip with a widened or unknown caveat
@@ -130,6 +133,7 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 8. Calendar access without a valid slip (the Gateway rejects it)
 9. Event insert without Vishwas's consent (a tentative slot can't be forced)
 10. Request after Vishwas revokes slip ②
+11. Directory entry with a forged or expired attestation (dropped by Kash's node)
 
 ## 8. Out of scope
 - Crew agents (Scheduler etc.), crew introductions / handoff
@@ -166,14 +170,16 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 | Risk | Impact | Mitigation |
 |---|---|---|
 | G1 fails (the Browser Wallet can't produce account-credential proofs with name + age) | Names can't be bound to agents cryptographically | Fallback: ID App identity proof + node attestation; decided at the end of week 1 |
+| Consent isn't tied to account X (G2): ID App proofs use the unlinkable identity credential | Someone who re-pairs a different ID App with the owner's node could approve meetings | Consent counts only through the session paired at setup (after linking X); plus a name match against the attestation if the ID App supports it (M0 spike). If not, the POC relies on the session binding alone. Recommend account-credential consent to Concordium. |
 | ID App consent isn't available on testnet | Meetings can't be confirmed as designed | Fallback: confirmation signed by X in the Browser Wallet |
 | The ID App doesn't surface WalletConnect requests while closed (no push) | Vishwas can't approve from his phone while away | **Accepted fallback:** Vishwas sees the pending consent in his local UI when he's back at his desk and approves from there (the ID App still gives the consent). Confirm with Concordium in week 1. |
 | Local node must stay running | If Vishwas's node is off, negotiation pauses | The relay queues messages; the demo keeps both nodes running |
 | Relay is the single centralised component | If it's down, nodes can't message, onboard or refresh the directory | Already-verified directory entries stay cached in each node; easy to restart or re-host |
 | Relay is trusted for identity attestations | A compromised attester could vouch for a false name | Every attestation's VAA is anchored from a well-known account (auditable); production uses several attesters (section 6) |
 | Shared relay sees message contents (no E2E in the POC) | The relay operator (the company) could read free/busy slots | Documented; E2E is the first production step (TB9) |
-| Anyone with access to the owner's machine can use the local UI | They could chat or request meetings as the owner | Can't grant slips (needs the wallet) or confirm as approver (needs the ID App on the phone) |
-| Node service account key sits on the user's machine | Could be stolen and its CCD spent | Low impact: it can only anchor data and holds no owner authority (slips and consent need X / the ID App) |
+| Anyone with access to the owner's machine can use the local UI | They could chat, request meetings, or grant slips as the owner | Grants are capped by the `delegationPolicy` (never `event.insert`); confirming as approver needs the ID App on the phone |
+| Delegation key sits on the owner's machine | If stolen, slips can be issued within the policy | Encrypted keystore; never reachable by the LLM; capped by `delegationPolicy`; rotate the key (X signs a card update) to invalidate all its slips |
+| Node service account key sits on the user's machine | Could be stolen and its CCD spent | Low impact: it can only anchor data and holds no owner authority (slips need the delegation key, consent needs the ID App) |
 | CIS-8004 draft changes, or testnet instability | Rework | Registry adapter; pin the contract version |
 | Scope creep | Timeline | This document is the boundary; changes need sign-off |
 
@@ -181,4 +187,4 @@ The POC proves the **trust layer**. The UI and AI are kept minimal on purpose.
 1. **Docker Compose node bundle** (UI, N1 server, Calendar Gateway, verifier) and the company-hosted **relay** (messaging, attester, directory index), demoed with three users on testnet (source code)
 2. Demo video covering onboarding, the happy path, first contact and all negative tests
 3. `SPEC.md` with implementation details (APIs, data formats, validation rules)
-4. Short findings note for Concordium: answers to G1–G8 and recommendations for CIS-8004, the Browser Wallet and the ID App
+4. Short findings note for Concordium: answers to G1–G10 and recommendations for CIS-8004, the Browser Wallet and the ID App
