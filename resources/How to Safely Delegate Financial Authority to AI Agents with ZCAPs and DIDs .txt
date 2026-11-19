@@ -1,0 +1,543 @@
+# How to Safely Delegate Financial Authority to AI Agents with ZCAPs and DIDs 
+
+Imagine letting an AI handle your company’s supplier payments, but without the nightmare scenario of handing it a credit card or your treasury’s master private key. That’s the core idea here.
+
+We want to enable organizations to delegate just enough financial authority to autonomous agents to get the job done—no more, no less. In a typical invoice flow, a business grants bounded authority to a Finance Agent. That agent reviews the bill and, instead of paying it directly, crafts a hyper-specific, narrow capability for a Payment Execution Agent. Before a single cent moves, the payment service checks the entire chain of custody to ensure every delegation was legit.
+
+2. The Problem: Today’s Auth Tools Aren't Built for Autonomous Agents
+AI agents are getting scarily good at reading invoices and making operational calls. But when it comes to actually moving money, our current setup breaks down.
+
+Today, most teams end up giving agents API keys, crypto wallet keys, or broad account roles. The trouble? Those credentials are usually way too powerful and last far longer than a single task requires. Sure, you can hack together custom token systems to restrict them, but they rarely give you a clean, cryptographic trail showing who delegated what, and under what limits. On the flip side, forcing a human to click "approve" on every single $20 invoice completely destroys the point of automation.
+
+You might be thinking: 
+
+“Can’t we just use DIDs and Verifiable Credentials (VCs)?” 
+
+DIDs and VCs are great for proving identity and eligibility—like confirming an agent exists or a supplier passed KYB checks. But on their own, they don't answer the core operational questions:
+
+Which exact action is this agent allowed to perform right now?
+
+Which specific resource or treasury account can it touch?
+
+What spending caps and expiration windows apply?
+
+Is this agent allowed to hand off authority to another sub-agent?
+
+How does the payment service trace authority all the way back to the treasury owner?
+
+So, here is the million-dollar question we're solving:
+
+How can a resource owner grant an agent limited, verifiable, and revocable financial authority, while making sure every sub-delegation stays strictly within the original bounds?
+
+3. Why This Matters for Your Business
+If we solve this, agentic workflows stop being a risky experiment and start becoming a serious operational advantage:
+
+Lower operating costs: Your team stops playing data-entry clerk with routine invoice processing.
+
+Faster payments: Legitimate, policy-compliant invoices get paid automatically without sitting in someone's inbox for days.
+
+Scale without the headcount: Your transaction volume can skyrocket without needing a massive army of finance reviewers.
+
+Radically smaller blast radius: Because agents operate under strict, short-lived permissions, a compromised or malfunctioning agent can't drain your treasury.
+
+Bulletproof governance: Every single payment leaves a cryptographic paper trail showing who granted the authority, what limits were set, and which agent executed the trade.
+
+Unlocks real agentic workflows: Suddenly, autonomous financial operations become practical in environments where giving an agent raw key access was previously a non-starter.
+
+4. How We Fix This: The Proposed Solution
+To build a system where agents can move money safely, we combine four distinct building blocks:
+
+DIDs (Decentralized Identifiers): To unambiguously identify the business, each agent, and the supplier.
+
+VCs & VPs (Verifiable Credentials & Presentations): To prove eligibility—like verifying a supplier’s KYB status or confirming an agent's registered role.
+
+ZCAPs (Authorization Capabilities): To express, delegate, and restrict cryptographic authority.
+
+A Custom Payment ZCAP Profile: To define real-world financial rules (caveats) like spending caps and single-use limits.
+
+We pull this together with two core infrastructure pieces: 
+
+a Payment Authorization Service to verify every signature and enforce policies, 
+
+and a Payment Execution Agent running in a hardened, isolated sandbox to trigger payments.
+
+4.1 Example Use Case
+The golden rule of this architecture is separating commercial data access from actual payment execution. We use two specialized agents instead of one all-powerful AI:
+
+The Finance Agent reads invoices, accesses business data, validates business rules and decides what should be paid. It may delegate transaction-specific payment authority but is not permitted to invoke payments.
+
+The Payment Execution Agent operates in a hardened environment without access to broader business data. It can request payment execution only by invoking a valid, narrowly scoped capability.
+
+Here is how that plays out in practice:
+
+Suppose the business owner gives the Finance Agent general authority to approve supplier payments—capped at USD 1,000 per transaction and USD 5,000 per day, valid for 30 days (with anything over USD 500 requiring human sign-off).
+
+When a legitimate USD 250 invoice arrives, the Finance Agent generates a short-lived child capability. This isn't a blank check; it is locked strictly to one supplier, one bank account, one specific invoice digest, and exactly one execution attempt. Further delegation is completely blocked.
+
+
+
+
+Minimize image
+Edit image
+Delete image
+
+Add a caption (optional)
+
+The Finance Agent hands this tight, single-use capability to the Payment Execution Agent, which submits it to the payment service. The service checks the entire delegation chain, ensures no limits were breached, and executes the transfer.
+
+4.2 Standards Boundary and Payment ZCAP Profile
+Let’s talk standards for a second. ZCAP v0.4 is a W3C Credentials Community Group draft—it gives us the core primitives for delegation: root capabilities, parent links, allowed actions, expiration windows, capability chains, and delegation/invocation proofs.
+
+What base ZCAP doesn't know about is payments. It doesn't natively understand daily spending caps, invoice digests, or vendor verification requirements.
+
+To bridge this gap, we define a Payment ZCAP Profile. We use a custom JSON-LD context to introduce payment-specific terms without messing with base ZCAP primitives (https://w3id.org/zcap/v1):
+
+{
+  "@context": {
+    "@version": 1.1,
+    "@vocab": "https://payments.example/vocab#"
+  }
+}
+Throughout the rest of our examples, we reference this profile context as: https://payments.example/contexts/payment-zcap-v1
+
+Here’s why this matters: because these caveats live inside the signed capability payload, any attempt by an agent to tamper with them instantly breaks the cryptographic proof. The Payment Authorization Service understands this profile context and enforces these constraints strictly—if it encounters an unknown caveat, it fails closed rather than ignoring it.
+
+Stopping the Finance Agent from Rogue Executions
+There's one crucial catch in base ZCAP: by default, any entity holding a delegated capability could theoretically turn around and invoke it directly. Since we want our Finance Agent to only delegate—never execute—we enforce key role separation:
+
+Key Purpose Restrictions: The Finance Agent holds a key authorized exclusively for capabilityDelegation, while the Payment Execution Agent holds a distinct key for capabilityInvocation.
+
+Explicit Role Caveats: We attach a RequiredInvokerRole caveat to the delegated capability, enforced at runtime by the Payment Authorization Service.
+
+Strict DID Governance: Updating the Finance Agent's DID document to grant itself invocation permissions is explicitly blocked at the governance layer.
+
+This ensures that even if a Finance Agent is fully compromised, it lacks the cryptographic keys and permissions required to trigger an unauthorized payment on its own.
+
+4.3 Establishing the Root of Authority
+Every chain begins with a root capability representing authority over the protected treasury resource:
+
+{
+  "@context": "https://w3id.org/zcap/v1",
+  "id": "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme",
+  "controller": "did:example:business-owner",
+  "invocationTarget": "https://payments.example/treasuries/acme"
+}
+The root is not trusted merely because this JSON exists. During treasury onboarding, the payment service verifies control of both the owner DID and the underlying treasury account, then stores a trusted binding between:
+
+The treasury resource.
+
+The payment or blockchain account.
+
+The business-owner DID.
+
+The authorized delegation verification method.
+
+For a blockchain treasury, onboarding can require both a DID-authentication signature and a wallet signature over the treasury account, target, network, service domain, nonce and expiry. The Payment Authorization Service dereferences the root from this trusted local record. The invoker supplies only the root capability identifier in the chain.
+
+4.4 Owner Delegation to the Finance Agent
+The owner creates the first delegated capability:
+
+{
+  "@context": [
+    "https://w3id.org/zcap/v1",
+    "https://w3id.org/security/data-integrity/v2",
+    "https://payments.example/contexts/payment-zcap-v1"
+  ],
+  "id": "urn:uuid:finance-capability-001",
+  "parentCapability": "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme",
+  "controller": "did:example:finance-agent",
+  "invocationTarget": "https://payments.example/treasuries/acme",
+  "allowedAction": ["executePayment"],
+  "expires": "2026-10-31T23:59:59Z",
+  "caveat": [
+    {
+      "type": "MaximumPaymentAmount",
+      "currency": "USD",
+      "amount": "1000"
+    },
+    {
+      "type": "DailySpendingLimit",
+      "currency": "USD",
+      "amount": "5000"
+    },
+    {
+      "type": "VerifiedSupplierRequired"
+    },
+    {
+      "type": "HumanApprovalThreshold",
+      "currency": "USD",
+      "amount": "500"
+    },
+    {
+      "type": "RequiredInvokerRole",
+      "role": "payment-execution-agent"
+    },
+    {
+      "type": "MaximumDelegationDepth",
+      "value": 1
+    }
+  ],
+  "proof": {
+    "type": "DataIntegrityProof",
+    "cryptosuite": "eddsa-jcs-2022",
+    "created": "2026-09-25T09:00:00Z",
+    "proofPurpose": "capabilityDelegation",
+    "verificationMethod": "did:example:business-owner#delegation-key",
+    "capabilityChain": [
+      "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme"
+    ],
+    "proofValue": "OWNER-DELEGATION-SIGNATURE"
+  }
+}
+allowedAction  includes executePayment because the child capability cannot introduce an action absent from its parent. The Finance Agent is nevertheless prevented from invoking that action by the application profile's key separation and RequiredInvokerRole enforcement.
+
+4.5 Payment Caveats and Policy Enforcement
+The signed caveats state the limits attached to delegated authority. The Payment Authorization Service implements their semantics and maintains the state needed to enforce them.
+
+Minimize image
+Edit image
+Delete image
+
+Add a caption (optional)
+
+Some rules cannot be enforced by signature verification alone. Daily totals, one-time use, revocation, replay prevention and credential status require authoritative server-side state.
+
+Each caveat type must define an attenuation rule. For example, a child may reduce MaximumPaymentAmount, narrow PermittedPayee from any verified supplier to one supplier, reduce MaximumInvocations, or prohibit further delegation. A child must not remove an inherited caveat or make it less restrictive.
+
+4.6 Finance-Agent Delegation to the Payment Execution Agent
+After validating an invoice, the Finance Agent creates a transaction-specific child capability:
+
+{
+  "@context": [
+    "https://w3id.org/zcap/v1",
+    "https://w3id.org/security/data-integrity/v2",
+    "https://payments.example/contexts/payment-zcap-v1"
+  ],
+  "id": "urn:uuid:payment-execution-capability-002",
+  "parentCapability": "urn:uuid:finance-capability-001",
+  "controller": "did:example:payment-execution-agent",
+  "invocationTarget": "https://payments.example/treasuries/acme",
+  "allowedAction": ["executePayment"],
+  "expires": "2026-09-30T23:59:59Z",
+  "caveat": [
+    {
+      "type": "MaximumPaymentAmount",
+      "currency": "USD",
+      "amount": "250"
+    },
+    {
+      "type": "PermittedPayee",
+      "payee": "did:example:supplier"
+    },
+    {
+      "type": "PermittedDestination",
+      "destination": "payment-account-123"
+    },
+    {
+      "type": "InvoiceBinding",
+      "invoiceDigest": "sha256:abc123..."
+    },
+    {
+      "type": "MaximumInvocations",
+      "value": 1
+    },
+    {
+      "type": "FurtherDelegationAllowed",
+      "value": false
+    },
+    {
+      "type": "MaximumDelegationDepth",
+      "value": 0
+    }
+  ],
+  "proof": {
+    "type": "DataIntegrityProof",
+    "cryptosuite": "eddsa-jcs-2022",
+    "created": "2026-09-25T10:00:00Z",
+    "proofPurpose": "capabilityDelegation",
+    "verificationMethod": "did:example:finance-agent#delegation-key",
+    "capabilityChain": [
+      "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme",
+      {
+        "@context": [
+          "https://w3id.org/zcap/v1",
+          "https://w3id.org/security/data-integrity/v2",
+          "https://payments.example/contexts/payment-zcap-v1"
+        ],
+        "id": "urn:uuid:finance-capability-001",
+        "parentCapability": "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme",
+        "controller": "did:example:finance-agent",
+        "invocationTarget": "https://payments.example/treasuries/acme",
+        "allowedAction": ["executePayment"],
+        "expires": "2026-10-31T23:59:59Z",
+        "caveat": [
+          {
+            "type": "MaximumPaymentAmount",
+            "currency": "USD",
+            "amount": "1000"
+          },
+          {
+            "type": "DailySpendingLimit",
+            "currency": "USD",
+            "amount": "5000"
+          },
+          {
+            "type": "VerifiedSupplierRequired"
+          },
+          {
+            "type": "HumanApprovalThreshold",
+            "currency": "USD",
+            "amount": "500"
+          },
+          {
+            "type": "RequiredInvokerRole",
+            "role": "payment-execution-agent"
+          },
+          {
+            "type": "MaximumDelegationDepth",
+            "value": 1
+          }
+        ],
+        "proof": {
+          "type": "DataIntegrityProof",
+          "cryptosuite": "eddsa-jcs-2022",
+          "created": "2026-09-25T09:00:00Z",
+          "proofPurpose": "capabilityDelegation",
+          "verificationMethod": "did:example:business-owner#delegation-key",
+          "capabilityChain": [
+            "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme"
+          ],
+          "proofValue": "OWNER-DELEGATION-SIGNATURE"
+        }
+      }
+    ],
+    "proofValue": "FINANCE-AGENT-DELEGATION-SIGNATURE"
+  }
+}
+The parent's caveats remain effective even when they are not repeated in the child. The service evaluates the union of inherited and child caveats. The child adds transaction-specific restrictions and narrows the maximum amount and remaining delegation depth.
+
+Minimize image
+Edit image
+Delete image
+
+Add a caption (optional)
+
+4.7 Supplier Verification Using VC and VP
+Capability delegation establishes whether an agent is authorized to request a payment. It does not establish whether the recipient is an eligible supplier.
+
+The supplier therefore presents a VP containing relevant credentials, such as business registration or KYB, approved-supplier status and payment-account ownership. The service verifies the issuers, proofs, validity and credential status, then confirms that the credential subject and payment account match the invocation.
+
+DID       -> Who are the business, agents and supplier?
+VC / VP   -> Is the supplier eligible, and does it control the destination?
+ZCAP      -> Is the agent authorized to request this payment?
+Payment   -> Was the authorized transaction executed?
+4.8 Capability Invocation
+The Payment Execution Agent obtains a fresh challenge from the Payment Authorization Service and submits an invocation carrying the complete leaf capability. The leaf embeds the Finance capability, which contains the owner's delegation proof.
+
+The following example includes the complete leaf capability in proof.capability. The leaf's capabilityChain embeds the Finance capability and its owner-signed delegation proof.
+
+{
+  "@context": [
+    "https://w3id.org/zcap/v1",
+    "https://w3id.org/security/data-integrity/v2",
+    "https://payments.example/contexts/payment-zcap-v1"
+  ],
+  "id": "urn:uuid:payment-invocation-003",
+  "payment": {
+    "amount": "250",
+    "currency": "USD",
+    "recipient": "did:example:supplier",
+    "destination": "payment-account-123",
+    "invoiceDigest": "sha256:abc123..."
+  },
+  "proof": {
+    "type": "DataIntegrityProof",
+    "cryptosuite": "eddsa-jcs-2022",
+    "created": "2026-09-25T10:30:00Z",
+    "proofPurpose": "capabilityInvocation",
+    "verificationMethod": "did:example:payment-execution-agent#invocation-key",
+    "invocationTarget": "https://payments.example/treasuries/acme",
+    "capabilityAction": "executePayment",
+    "capability": {
+      "@context": [
+        "https://w3id.org/zcap/v1",
+        "https://w3id.org/security/data-integrity/v2",
+        "https://payments.example/contexts/payment-zcap-v1"
+      ],
+      "id": "urn:uuid:payment-execution-capability-002",
+      "parentCapability": "urn:uuid:finance-capability-001",
+      "controller": "did:example:payment-execution-agent",
+      "invocationTarget": "https://payments.example/treasuries/acme",
+      "allowedAction": ["executePayment"],
+      "expires": "2026-09-30T23:59:59Z",
+      "caveat": [
+        {
+          "type": "MaximumPaymentAmount",
+          "currency": "USD",
+          "amount": "250"
+        },
+        {
+          "type": "PermittedPayee",
+          "payee": "did:example:supplier"
+        },
+        {
+          "type": "PermittedDestination",
+          "destination": "payment-account-123"
+        },
+        {
+          "type": "InvoiceBinding",
+          "invoiceDigest": "sha256:abc123..."
+        },
+        {
+          "type": "MaximumInvocations",
+          "value": 1
+        },
+        {
+          "type": "FurtherDelegationAllowed",
+          "value": false
+        },
+        {
+          "type": "MaximumDelegationDepth",
+          "value": 0
+        }
+      ],
+      "proof": {
+        "type": "DataIntegrityProof",
+        "cryptosuite": "eddsa-jcs-2022",
+        "created": "2026-09-25T10:00:00Z",
+        "proofPurpose": "capabilityDelegation",
+        "verificationMethod": "did:example:finance-agent#delegation-key",
+        "capabilityChain": [
+          "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme",
+          {
+            "@context": [
+              "https://w3id.org/zcap/v1",
+              "https://w3id.org/security/data-integrity/v2",
+              "https://payments.example/contexts/payment-zcap-v1"
+            ],
+            "id": "urn:uuid:finance-capability-001",
+            "parentCapability": "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme",
+            "controller": "did:example:finance-agent",
+            "invocationTarget": "https://payments.example/treasuries/acme",
+            "allowedAction": ["executePayment"],
+            "expires": "2026-10-31T23:59:59Z",
+            "caveat": [
+              {
+                "type": "MaximumPaymentAmount",
+                "currency": "USD",
+                "amount": "1000"
+              },
+              {
+                "type": "DailySpendingLimit",
+                "currency": "USD",
+                "amount": "5000"
+              },
+              {
+                "type": "VerifiedSupplierRequired"
+              },
+              {
+                "type": "HumanApprovalThreshold",
+                "currency": "USD",
+                "amount": "500"
+              },
+              {
+                "type": "RequiredInvokerRole",
+                "role": "payment-execution-agent"
+              },
+              {
+                "type": "MaximumDelegationDepth",
+                "value": 1
+              }
+            ],
+            "proof": {
+              "type": "DataIntegrityProof",
+              "cryptosuite": "eddsa-jcs-2022",
+              "created": "2026-09-25T09:00:00Z",
+              "proofPurpose": "capabilityDelegation",
+              "verificationMethod": "did:example:business-owner#delegation-key",
+              "capabilityChain": [
+                "urn:zcap:root:https%3A%2F%2Fpayments.example%2Ftreasuries%2Facme"
+              ],
+              "proofValue": "OWNER-DELEGATION-SIGNATURE"
+            }
+          }
+        ],
+        "proofValue": "FINANCE-AGENT-DELEGATION-SIGNATURE"
+      }
+    },
+    "domain": "payments.example",
+    "challenge": "random-challenge-789",
+    "proofValue": "PAYMENT-EXECUTION-AGENT-INVOCATION-SIGNATURE"
+  }
+}
+The invocation package contains three independently verifiable signatures:
+
+Minimize image
+Edit image
+Delete image
+
+Add a caption (optional)
+
+The Payment Execution Agent cannot create missing authority by signing an invocation. If it invents a leaf capability, alters a caveat or omits the owner's parent delegation, chain verification fails.
+
+The invocation is an authorization request, not the final payment transaction.
+
+4.9 Capability-Chain and Caveat Validation
+The Payment Authorization Service validates the chain from root to leaf:
+
+Dereference the root locally and confirm its trusted controller and target.
+
+Verify the owner's signature on the Finance capability.
+
+Confirm that the Finance capability's parent is the root.
+
+Verify the Finance Agent's signature on the Payment Execution capability.
+
+Confirm that its parent is the embedded Finance capability.
+
+Confirm that target, action and expiry remain equal or become more restrictive.
+
+Resolve the Payment ZCAP context and reject unsupported caveat types.
+
+Confirm that every child caveat preserves or narrows inherited authority.
+
+Verify the Payment Execution Agent's invocation signature and fresh challenge.
+
+Confirm that the invocation key matches the leaf controller and is authorized for capabilityInvocation.
+
+Compare the payment arguments with all inherited and child caveats.
+
+Verify supplier eligibility, destination ownership, revocation status and any required human approval.
+
+Atomically enforce daily limits and one-time use, then reject replayed or consumed invocations.
+
+If any capability, proof, caveat, credential or state check is missing or invalid, authorization fails closed.
+
+5.0 Human Approvals, State, and the Future of Safe AI Payments
+Delegating authority to AI agents doesn’t mean throwing manual governance out the window. In practice, high-risk or unusual transactions still need a human touch. When a payment meets or exceeds a set approval threshold, the system requires an explicit, owner-signed authorization cryptographically bound to the exact amount, payee, invoice digest, and expiry. Crucially, a human sign-off isn't a "pass-through" override—it reinforces the capability chain without bypassing inherited caveats.
+
+To prevent double-spending, replay attacks, or rogue actions, the Payment Authorization Service maintains authoritative, real-time state. If a Finance Agent's capability is revoked, every descendant capability derived from it instantly breaks. By tracking consumed single-use capabilities, used challenge nonces, daily spending totals, and real-time credential revocation lists, the service guarantees that expired or reused capabilities fail immediately.
+
+Finally, accountability is non-negotiable. Every single payment attempt leaves a comprehensive audit trail detailing the full capability chain, proof verification results, applied caveats, and exact decision rationales. Because these records use cryptographic digests rather than raw invoice contents or sensitive identity attributes, businesses gain complete auditability without sacrificing privacy.
+
+
+Bringing autonomous AI agents into enterprise workflows doesn't mean choosing between full manual control and terrifying financial exposure. 
+
+By layering domain-specific payment profiles over standard cryptographic primitives like ZCAPs, DIDs, and Verifiable Credentials, we can give agents precise, short-lived authority that is mathematically bounded and completely auditable. 
+
+The future of agentic automation is about building systems where trust is explicit, verifiable, and constrained by design. 
+
+How is your team handling the balance between AI autonomy and financial control? If you were to give an AI agent spending power today, what guardrails would your organization demand before hitting "deploy"?
+
+
+ References 
+Authorization Capabilities v0.4.0 Draft
+
+Controlled Identifiers v1.0
+
+Decentralized Identifiers (DIDs) v1.0
+
+Verifiable Credentials Data Model v2.0
+
+Verifiable Credential Data Integrity 1.0
+
