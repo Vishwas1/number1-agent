@@ -7,16 +7,16 @@ Acts for the owner: verifies peers, issues and checks slips, runs crew tasks and
 ## 2. Responsibilities (modules)
 | Module | Does | Spec |
 |---|---|---|
-| `setup` | Wallet-link challenge; crew choice; key generation; card build (keys + `crews` + per-crew policy) + upload; register params for the wallet; read the token ID; attestation start/complete; WalletConnect pairing; crew setup | [flows.md](../flows.md) F1 |
+| `setup` | Wallet-link challenge; crew choice; key generation; card build (keys + `crews` + per-crew policy) + upload; register params for the wallet; read the token ID; attestation start/complete; crew setup | [flows.md](../flows.md) F1 |
 | `crews` | Load crew modules (POC: `calendar`), register their actions, caveats and message types; run `setup()` / `teardown()`; route verified crew messages to the module; serve crew views | [crew-modules.md](../shared/crew-modules.md) |
 | `trust` | `verifyAgent`, `verifyAttestation`, envelope checks, handshake, `verifyChain` / `verifyInvocation`, revocation list, nonce and session stores | shared/* |
 | `directory` | Fetch the relay index, verify every entry, cache, merge presence | §5.1 |
-| `relay-client` | WSS connect + auth, send / receive / ack, reconnect with backoff | [relay-service.md](../relay/relay-service.md) §3.1 |
+| `relay-client` | WSS connect + auth, send / receive / ack, reconnect with backoff. Plain `ws://` / `http://` is refused unless the relay host is `localhost` or `host.docker.internal` (local testing, [local-dev.md](../local-dev.md)). | [relay-service.md](../relay/relay-service.md) §3.1 |
 | `inbox` | Store `contact.request` from agents without a slip; **Allow** → slip issuer | §5.2 |
 | `slips` | Issue (owner click only), store issued and received, revoke, policy check | [capabilities.md](../shared/capabilities.md) §8 |
 | `tasks` | Generic owner tasks (one crew intent with one peer): state, options from the crew, owner's choice | §5.3 |
 | `commitments` | Generic commitment protocol: propose, hold, consent, execute via the module, confirm | [consent.md](../shared/consent.md) |
-| `consent` | Build consent VPR via the verifier, push over WalletConnect, verify the VP, store the consent record | [consent.md](../shared/consent.md) |
+| `consent` | Build the consent VPR via the verifier, hand it to the UI for the Browser Wallet, verify the VP (bound to X), store the consent record | [consent.md](../shared/consent.md) |
 | `gateway-client` | Invoke a crew's own-N1 slip at that crew's gateway (`POST /v1/invoke`) | [crew-modules.md](../shared/crew-modules.md) §4a |
 | `llm` | Owner text → typed intent; draft display text. Never sees keys, never calls trust or gateway functions. | §5.4 |
 | `audit` | Hash-chained signed log; anchor on demand | §5.5 |
@@ -26,7 +26,7 @@ Acts for the owner: verifies peers, issues and checks slips, runs crew tasks and
 ### 3.1 Local API (for `ui` only, `127.0.0.1:7100`, JSON)
 | Method + path | Body → response | Notes |
 |---|---|---|
-| `GET /api/setup/status` | → `{ step, account?, agentId?, attested, idAppPaired, crews: [{ id, ready }] }` | Wizard resume |
+| `GET /api/setup/status` | → `{ step, account?, agentId?, attested, crews: [{ id, ready }] }` | Wizard resume |
 | `POST /api/setup/link/challenge` | → `{ message }` | `"Number One node link\nnode: <nodeId>\nnonce: <hex>\nexpires: <ts>"` |
 | `POST /api/setup/link` | `{ account, signature }` → `{ ok }` | `verifyAccountMessage` against X's chain keys |
 | `GET /api/crews` | → `{ available: [{ id, title, icon, defaultPolicy }], installed: [{ id, status, peersAllowed }] }` | Catalog = bundled modules; installed = own card |
@@ -35,7 +35,6 @@ Acts for the owner: verifies peers, issues and checks slips, runs crew tasks and
 | `POST /api/setup/agent/registered` | `{ txHash }` → `{ agentId }` | Waits for finalisation; reads the `Registered` event |
 | `POST /api/setup/attestation/start` | → `{ requestId, vpr }` | Proxies the relay `POST /attestations/requests` |
 | `POST /api/setup/attestation/complete` | `{ requestId, vp }` → `{ attestation }` | Proxies the relay; verifies the result with `verifyAttestation` |
-| `POST /api/setup/idapp/pair` | → `{ wcUri }`; completion via SSE `idapp.paired` | WalletConnect SignClient; stores the session topic |
 | `POST /api/crews/:id/setup` | crew-specific body (calendar: `{ adapter: "mock" }`) → `{ slipId }` | Runs the module's `setup()`; issues its own-N1 slip ① |
 | `POST /api/crews/:id/add/prepare` · `/remove/prepare` | → `{ card, setAgentUriParams, affectedPeers }` | Later changes; the wallet signs `setAgentURI`, then `/api/crews/:id/add/done` or `/remove/done { txHash }` runs `setup()` / `teardown()` |
 | `GET /api/directory` | → `[{ agentId, name, ageOver18, online, status, reason? }]` | Verified entries; failed entries appear with their reason |
@@ -49,15 +48,17 @@ Acts for the owner: verifies peers, issues and checks slips, runs crew tasks and
 | `GET /api/conversations/:id` | → `{ messages, task? }` | Includes agent-to-agent messages for the conversation view |
 | `GET /api/tasks/:id` | → `{ id, crew, peer, state, options: [...], renderer }` | `renderer` names the crew's option renderer (calendar: `slot-list`) |
 | `POST /api/tasks/:id/choose` | `{ optionId }` → `{ commitmentId }` | The owner's pick = requester intent; the module's `fromOption()` builds the commitment, then `commitment.propose` |
-| `GET /api/consents` | → pending and finished consents | |
-| `POST /api/consents/:id/resend` | → `{ ok }` | Re-push to the ID App |
+| `GET /api/commitments?state=tentative&role=approver` | → pending approvals: `[{ id, crew, peer, text, commitmentHash, expiresAt }]` | `text` from the crew module |
+| `POST /api/commitments/:id/approve/start` | → `{ vpr }` | Creates the consent VPR ([consent.md](../shared/consent.md) §4) |
+| `POST /api/commitments/:id/approve/complete` | `{ vp }` → `{ ok }` | Verifies (§5 of consent.md), executes, sends `commitment.confirmed` |
+| `POST /api/commitments/:id/decline` | → `{ ok }` | Releases the hold, sends `commitment.declined` |
 | `GET /api/crews/:id/views/:view` | query → view data | Crew views (calendar: `my-calendar`, via `calendar.event.list`) |
 | `POST /api/crews/:id/views/:view/actions/:action` | action body → result | Owner-only view actions, from UI clicks only (calendar: `add-busy` → `calendar.event.create`) |
 | `POST /api/audit/anchor` | → `{ txHash }` | |
 | `POST /api/keys/rotate/prepare` | `{ rotate: ["delegation", …], policy? }` → `{ card, setAgentUriParams }` | Then the wallet signs `setAgentURI` |
 | `POST /api/keys/rotate/done` | `{ txHash }` → `{ ok }` | Switches keys after finalisation |
 | `POST /api/agent/revoke/prepare` | `{ reason }` → `{ revokeParams }` | Then the wallet signs `revoke` |
-| `GET /api/events` | SSE stream | `trust` (reason codes), `message`, `inbox`, `task`, `commitment`, `consent`, `presence`, `idapp.paired` |
+| `GET /api/events` | SSE stream | `trust` (reason codes), `message`, `inbox`, `task`, `commitment`, `consent`, `presence` |
 
 - **Auth:** the server binds to localhost only, and every request carries a per-install token from `data/ui-token`, which the `ui` container reads at start (TB1).
 - **Errors:** [identifiers-and-encoding.md](../shared/identifiers-and-encoding.md) §5.
@@ -84,7 +85,7 @@ Acts for the owner: verifies peers, issues and checks slips, runs crew tasks and
 ## 4. Data (`data/n1.db`)
 | Table | Key columns |
 |---|---|
-| `setup` | `step`, `account`, `agent_id`, `card_hash`, `attestation_json`, `wc_topic` |
+| `setup` | `step`, `account`, `agent_id`, `card_hash`, `attestation_json` |
 | `crews` | `id` PK, `version`, `status` (`chosen` \| `active` \| `removed`), `own_slip_id`, `config_json` |
 | `peers` | `agent_id` PK, `owner`, `name`, `age_over18`, `card_hash`, `attestation_id`, `verified_at`, `status`, `last_reason` |
 | `sessions` | `session_id` PK, `peer`, `expires_at`, `send_seq`, `recv_seq` |
@@ -153,7 +154,7 @@ any ──error / 48 h timeout──► closed
 `.env` from [README.md](README.md) §2. Fixed timeouts: session 1 h, nonce TTL 10 min, consent 24 h, task 48 h, directory refresh 60 s, `agentOf` cache 60 s.
 
 ## 7. Security notes
-- **TB1:** the API is localhost-only with a token. Grants are capped by `delegationPolicy`, and confirmations need the ID App.
+- **TB1:** the API is localhost-only with a token. Grants are capped by `delegationPolicy`, and confirmations need a Browser Wallet proof from account X.
 - **TB6:** slips are issued only from API calls that come from UI clicks. No code path lets the LLM or a peer message trigger issuing.
 - **TB8:** the full envelope check runs before any business logic.
 - **Keys:** the keystore is decrypted into memory at start. Keys are never logged and never sent to the LLM.

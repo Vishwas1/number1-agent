@@ -6,21 +6,22 @@ One per user, on the user's own machine. Four services in one `docker compose` p
 services:
   ui:
     image: number-one/ui:0.1
-    ports: ["127.0.0.1:3000:3000"]
-    environment: [N1_API_URL=http://127.0.0.1:7100]
+    ports: ["127.0.0.1:${UI_PORT:-3000}:3000"]
+    environment: [N1_API_URL=http://127.0.0.1:${N1_PORT:-7100}]
   n1-agent:
     image: number-one/n1-agent:0.1
-    ports: ["127.0.0.1:7100:7100"]
-    env_file: .env
+    ports: ["127.0.0.1:${N1_PORT:-7100}:7100"]
+    env_file: ${NODE_DIR:-.}/.env
+    extra_hosts: ["host.docker.internal:host-gateway"]   # reach a relay running on the same machine (local testing)
     volumes:
-      - ./data:/data                                  # n1.db, keystore.json, audit/
-      - ./secrets/node-service-account.export:/keys/service.export:ro
+      - ${NODE_DIR:-.}/data:/data                     # n1.db, keystore.json, audit/
+      - ${NODE_DIR:-.}/secrets/node-service-account.export:/keys/service.export:ro
     depends_on: [calendar-gateway, verifier]
   calendar-gateway:
     image: number-one/calendar-gateway:0.1
     expose: ["7200"]
-    env_file: .env
-    volumes: ["./data/calendar:/data"]                # calendar.db (mock adapter)
+    env_file: ${NODE_DIR:-.}/.env
+    volumes: ["${NODE_DIR:-.}/data/calendar:/data"]   # calendar.db (mock adapter)
   verifier:
     image: concordium/credential-verification-service:0.1.0
     expose: ["8000", "8001"]
@@ -30,15 +31,18 @@ services:
       - CREDENTIAL_VERIFICATION_SERVICE_MONITORING_ADDRESS=0.0.0.0:8001
       - CREDENTIAL_VERIFICATION_SERVICE_ACCOUNT=/keys/verifier_account.export
       - LOG_LEVEL=info
-    volumes: ["./secrets/node-service-account.export:/keys/verifier_account.export:ro"]
+    volumes: ["${NODE_DIR:-.}/secrets/node-service-account.export:/keys/verifier_account.export:ro"]
 ```
+- Host ports come from `UI_PORT` / `N1_PORT` (defaults 3000 / 7100), and all data paths from `NODE_DIR`, so several nodes can run on one machine ([local-dev.md](../local-dev.md)).
 - `ui` and `n1-agent` bind to `127.0.0.1` only. `calendar-gateway` and `verifier` aren't published to the host at all.
-- `n1-agent` connects **outbound only**: to the relay (WSS/HTTPS), the testnet gRPC endpoint, the LLM provider and the WalletConnect relay.
+- `n1-agent` connects **outbound only**: to the relay (WSS/HTTPS), the testnet gRPC endpoint, and the LLM provider.
 
 ## 2. `.env`
 | Variable | Example | Used by |
 |---|---|---|
 | `NETWORK` | `testnet` | all |
+| `UI_PORT` / `N1_PORT` | `3000` / `7100` | compose (host ports only; containers always listen on 3000 / 7100) |
+| `NODE_DIR` | `.` | compose: folder holding this node's `.env`, `data/`, `secrets/`, relative to `deploy/node/` (e.g. `../local/kash`) |
 | `GRPC_ENDPOINT` | `https://grpc.testnet.concordium.com:20000` | n1-agent, gateway, verifier |
 | `CIS8004_CONTRACT` | `9876,0` | n1-agent, gateway |
 | `RELAY_URL` / `RELAY_WS_URL` | `https://relay.number-one.dev` / `wss://relay.number-one.dev/ws` | n1-agent |
@@ -49,9 +53,7 @@ services:
 | `LLM_MODE` | `openai` \| `scripted` | n1-agent |
 | `OPENAI_API_KEY` | (secret, the owner's own key) | n1-agent |
 | `LLM_MODEL` | `gpt-4o-mini` (any OpenAI chat model with JSON-schema output) | n1-agent |
-| `WALLETCONNECT_PROJECT_ID` | (id) | n1-agent, ui |
 | `OWNER_TZ` | `Europe/Copenhagen` | n1-agent, gateway |
-| `CONSENT_NAME_MATCH` | `true` | n1-agent ([consent.md](../shared/consent.md) §3) |
 | `GATEWAY_URL` / `VERIFIER_URL` | `http://calendar-gateway:7200` / `http://verifier:8000` | n1-agent |
 | `N1_AGENT_URL` | `http://n1-agent:7101` | gateway (meeting lookups) |
 
@@ -71,6 +73,5 @@ services:
    - keys + card
    - register the N1
    - attestation
-   - ID App pairing
    - crew setup (Calendar: connect the mock calendar)
 3. Setup state is kept in `n1.db`, so the wizard resumes where it stopped.

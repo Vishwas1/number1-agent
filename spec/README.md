@@ -25,7 +25,6 @@ flowchart LR
       RDB[(SQLite:<br/>relay.db)]
     end
     BW[Browser Wallet<br/>account X]
-    IDA[ID App<br/>phone]
     CH[(Concordium testnet<br/>CIS-8004 · RegisterData)]
     LLM[LLM provider]
 
@@ -34,7 +33,6 @@ flowchart LR
     N1 --> GW
     N1 --> VER
     N1 <-->|WSS + HTTPS| RS
-    N1 -->|WalletConnect| IDA
     N1 --> LLM
     N1 & GW & VER --> CH
     RS --> RV
@@ -48,7 +46,7 @@ flowchart LR
 |---|---|---|---|
 | Node | `n1-agent` | [node/n1-agent.md](node/n1-agent.md) | The N1 agent: trust engine, slips, negotiation, consent, audit, local API |
 | Node | `ui` | [node/ui.md](node/ui.md) | Local web app: setup wizard, directory, inbox, chat, consents, calendar, trust log |
-| Node | `verifier` | [node/verifier.md](node/verifier.md) | Concordium Credential Verification Service for the owner's **consent** |
+| Node | `verifier` | [node/verifier.md](node/verifier.md) | Concordium Credential Verification Service for the owner's **consent** (a Verify & Access proof from their Browser Wallet) |
 | Node | `calendar-gateway` | [node/calendar-gateway.md](node/calendar-gateway.md) | The calendar crew's gateway: the only component with calendar access; acts only on valid slip invocations |
 | Relay | `relay-service` | [relay/relay-service.md](relay/relay-service.md) | Messaging, presence, directory index, Agent Card cache, attester |
 | Relay | database | [relay/database.md](relay/database.md) | SQLite schema for the relay |
@@ -75,7 +73,7 @@ Bundle setup: [node/README.md](node/README.md) · [relay/README.md](relay/README
 |---|---|
 | [crews/calendar.md](crews/calendar.md) | The calendar crew: actions, caveats, policy, intents, negotiation messages, commitment hooks, gateway, UI |
 
-End-to-end sequences: [flows.md](flows.md) · Tests and acceptance: [testing.md](testing.md)
+End-to-end sequences: [flows.md](flows.md) · Tests and acceptance: [testing.md](testing.md) · Relay + 2 nodes on one laptop: [local-dev.md](local-dev.md)
 
 ## 3. Conventions
 | Topic | Rule |
@@ -114,4 +112,4 @@ End-to-end sequences: [flows.md](flows.md) · Tests and acceptance: [testing.md]
 | **Node service account** | Low-value Concordium account used by the node for anchors (never X) |
 | **VPR / VP** | Verifiable presentation request / verifiable presentation (Verify & Access) |
 | **VRA / VAA** | On-chain anchors for the request / the verification result |
-| **Approver** | The owner whose resource a commitment would use (e.g. Vishwas's calendar); the only one who consents |
+| **Approver** | The owner whose resource a commitment would use (e.g. Vishwas's calendar); the only one who consents, in their Browser Wallet at their desk |

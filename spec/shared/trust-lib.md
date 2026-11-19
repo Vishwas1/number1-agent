@@ -56,7 +56,7 @@ registerCrew(def: { id; actions; caveats }): void            // called by n1-age
 
 // consent.ts
 commitmentHash(crew: string, commitment: object): string     // consent.md §2
-consentContextString(m, names): string                        // consent.md §3
+consentVpr(c: { crew; commitmentId; commitmentHash }): VprInput   // consent.md §4 (accountCredential, context = hash)
 verifyConsentRecord(rec, expected: { commitmentHash; serviceAccount }, chain): Promise<Result>   // consent.md §5
 
 // reasons.ts

@@ -6,12 +6,12 @@ Company-hosted, and the only centralised component. Three parts: `relay-service`
 services:
   relay-service:
     image: number-one/relay-service:0.1
-    ports: ["443:8443"]
-    env_file: .env
+    ports: ["${RELAY_PORT:-443}:8443"]
+    env_file: ${RELAY_DIR:-.}/.env
     volumes:
-      - ./data:/data                                   # relay.db
-      - ./secrets/attester-signing.key:/keys/attester-signing.key:ro
-      - ./tls:/tls:ro
+      - ${RELAY_DIR:-.}/data:/data                     # relay.db
+      - ${RELAY_DIR:-.}/secrets/attester-signing.key:/keys/attester-signing.key:ro
+      - ${RELAY_DIR:-.}/tls:/tls:ro                    # not needed when RELAY_TLS=false
     depends_on: [verifier]
   verifier:
     image: concordium/credential-verification-service:0.1.0
@@ -22,14 +22,17 @@ services:
       - CREDENTIAL_VERIFICATION_SERVICE_MONITORING_ADDRESS=0.0.0.0:8001
       - CREDENTIAL_VERIFICATION_SERVICE_ACCOUNT=/keys/verifier_account.export
       - LOG_LEVEL=info
-    volumes: ["./secrets/attester-account.export:/keys/verifier_account.export:ro"]
+    volumes: ["${RELAY_DIR:-.}/secrets/attester-account.export:/keys/verifier_account.export:ro"]
 ```
 The database is SQLite in `data/relay.db`, opened by `relay-service` in WAL mode. It runs as a **single instance**: there's no horizontal scaling in the POC.
 
 ## 2. `.env`
 | Variable | Example | Purpose |
 |---|---|---|
-| `PUBLIC_BASE_URL` | `https://relay.number-one.dev` | Card URIs, attester key ID |
+| `PUBLIC_BASE_URL` | `https://relay.number-one.dev` | Card URIs, attester key ID. Must be reachable **by the nodes** (local testing: `http://host.docker.internal:8080`). |
+| `RELAY_PORT` | `443` | Host port (local testing: `8080`) |
+| `RELAY_DIR` | `.` | Folder with this relay's `.env`, `data/`, `secrets/`, relative to `deploy/relay/` (local testing: `../local/relay`) |
+| `RELAY_TLS` | `true` | `false` only for local testing: plain HTTP / `ws://` on 8443, no `tls/` mount |
 | `GRPC_ENDPOINT` | `https://grpc.testnet.concordium.com:20000` | Chain reads |
 | `CIS8004_CONTRACT` | `9876,0` | Registry |
 | `DB_PATH` | `/data/relay.db` | SQLite |

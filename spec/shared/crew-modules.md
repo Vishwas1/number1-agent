@@ -51,7 +51,7 @@ interface CrewModule {
     validate(c, invocation): Result            // fits the slip's caveats
     conflicts?(a, b): boolean                  // two holds can't coexist
     recheck(c, ctx): Promise<boolean>          // still possible right before execution
-    text(c, names): string                     // consent markdown (the core adds Ref)
+    text(c, names): string                     // approval text shown in the owner's UI before the wallet prompt
     execute(c, confirmation, ctx): Promise<void>  // call the gateway's confirmation-gated action (both sides)
   }
   gateway: { url: string }           // e.g. http://calendar-gateway:7200

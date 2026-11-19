@@ -62,7 +62,7 @@ Core caveats (`RateLimit`, `MaxDelegationDepth`, `RequiresOwnerConfirmation`) ar
 | `text(c, names)` | see below |
 | `execute(c, confirmation)` | Gateway `calendar.event.insert` `{ commitmentId, start, end, title, attendees: [requester, approver] }` + confirmation. Same call on both sides, each with its own slip ①. |
 
-**Consent text** (the core adds the `Ref` line):
+**Approval text**, shown in the owner's **Pending approvals** screen before the Browser Wallet prompt (the UI adds the short commitment hash):
 ```
 ## Confirm meeting
 

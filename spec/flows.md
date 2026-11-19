@@ -37,7 +37,6 @@ sequenceDiagram
     RS->>CH: credRegId → X? agentOf → owner X?
     RS-->>N1: signed attestation (directory updated)
     N1->>N1: verifyAttestation (pinned key) ✓
-    UI->>N1: idapp/pair → wcUri (QR) · owner scans with ID App
     UI->>N1: crews/calendar/setup → mock calendar connected · slip ① signed by the delegation key
 ```
 Specs: [ui.md](node/ui.md) §3 · [agent-card.md](shared/agent-card.md) · [attestation.md](shared/attestation.md) · [relay-service.md](relay/relay-service.md) §3.3
@@ -74,7 +73,7 @@ sequenceDiagram
     participant VN as Vishwas n1-agent
     participant VG as Vishwas gateway
     participant VV as Vishwas verifier
-    participant IDA as Vishwas ID App (phone)
+    participant VUI as Vishwas UI + Browser Wallet
 
     KN->>VN: calendar.availability.request + invocation(②, calendar.freebusy.read)
     VN->>VN: verifyEnvelope + verifyInvocation (A0)
@@ -85,11 +84,14 @@ sequenceDiagram
     KN->>VN: commitment.propose {crew: calendar, commitment} + invocation(②, calendar.meeting.propose)
     VN->>VN: validate + conflicts + recheck (calendar module) · hold (tentative) · commitmentHash
     VN-->>KN: commitment.tentative {commitmentHash}
-    VN->>VV: create-verification-request (consent:markdown + names)
-    VN->>IDA: request_verifiable_presentation_v1 (paired session)
-    IDA-->>VN: VP (Vishwas approves)
+    Note over VN,VUI: hold waits until Vishwas is back at his desk (24 h max)
+    VUI->>VN: Pending approvals → Approve
+    VN->>VV: create-verification-request (accountCredential, context = commitmentHash)
+    VN-->>VUI: VPR
+    VUI->>VUI: Browser Wallet answers → VP (bound to X)
+    VUI->>VN: approve/complete {vp}
     VN->>VV: verify → VAA anchored
-    VN->>VN: checks (session, name match, recheck)
+    VN->>VN: checks (credRegId → own X, recheck)
     VN->>VG: invoke(①, calendar.event.insert) + {consent record}
     VG-->>VN: eventId
     VN-->>KN: commitment.confirmed {commitmentHash, vaaTx}

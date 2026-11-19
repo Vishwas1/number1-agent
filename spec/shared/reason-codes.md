@@ -50,7 +50,8 @@ Every accept or reject decision carries one code. The trust log shows it, HTTP e
 | `CONSENT_REQUIRED` | `calendar.event.insert` without an owner confirmation |
 | `CONSENT_INVALID` | Consent record fails verification |
 | `CONSENT_COMMITMENT_MISMATCH` | Consent is for a different commitment (e.g. another slot) |
-| `CONSENT_EXPIRED` | Consent request timed out |
+| `CONSENT_NOT_OWNER` | The consent proof's account credential doesn't belong to this node's owner account X |
+| `CONSENT_EXPIRED` | The owner didn't approve within the 24 h hold |
 | `COMMITMENT_UNAVAILABLE` | Commitment no longer possible: conflicts with a hold, or the crew's re-check fails (calendar: slot taken) |
 
 ## Accept codes

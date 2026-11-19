@@ -30,7 +30,7 @@ Concordium Credential Verification Service (`concordium/credential-verification-
 }
 ```
 - `source: ["accountCredential"]` is essential. It ties the proof to account X through `credRegId` (TB5). **G1:** confirm in the M0 spike that the Browser Wallet answers this request type.
-- **G1 fallback**, agreed at the week-1 gate: an identity-credential proof from the ID App plus the attestation. The binding to X is then weaker, and that has to be documented.
+- **G1 is confirmed:** the Browser Wallet supports the Verify & Access flow (team check, Nov 2026). The M0 spike confirms the exact call and the name + age-range statements.
 - `issuers` are built from `TRUSTED_IDPS`.
 
 ## 3. Endpoints used by `relay-service`

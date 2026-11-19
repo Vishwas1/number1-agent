@@ -5,10 +5,10 @@ How the POC proves the success criteria (S1–S8) and negative tests (NT1–NT11
 | Layer | Where | What |
 |---|---|---|
 | Unit | `packages/trust-lib`, each app | Golden and negative vectors per format and reason code; core task and commitment state machines against a **fake crew**; calendar slot computation in its module |
-| Integration | `deploy/test/docker-compose.yml`: relay bundle + 3 node bundles (Kash, Vishwas, Pete) on testnet | F1–F6 from [flows.md](flows.md) |
+| Integration | Relay + 2–3 node bundles on one machine, on testnet ([local-dev.md](local-dev.md)) | F1–F6 from [flows.md](flows.md) |
 | Abstraction | A **fake crew** module + stub gateway in the test suite (no calendar code) | Proves a crew can be added without core changes: setup, grant, task, commitment, consent, remove |
 | Adversarial | `tools/evil-peer`: a CLI that authenticates to the relay as a test agent and sends crafted envelopes and invocations | NT1–NT11 |
-| Demo rehearsal | Real Browser Wallet + ID App on phones | The full demo script (M8) |
+| Demo rehearsal | Real Browser Wallets (one browser profile per user) | The full demo script (M8) |
 
 `tools/evil-peer` scenarios read fixtures from `tools/evil-peer/scenarios/*.json` and assert the **reason code** in the target node's trust log (`GET /api/events`).
 
@@ -38,7 +38,7 @@ How the POC proves the success criteria (S1–S8) and negative tests (NT1–NT11
 | S3 | F2 with Pete: inbox → Allow → retry → slots | Trust log `OK_FIRST_CONTACT`, then `OK_INVOCATION` |
 | S4 | Vishwas's slip ② to Kash verifies | `GET /api/capabilities` issued/received; `verifyChain` ok |
 | S5 | F3 up to `commitment.tentative`, Vishwas away | No calendar write on either side; free/busy without titles |
-| S6 | Consent on Vishwas's phone → event in both "My calendar" views | Consent record + VAA; two `eventId`s |
+| S6 | Vishwas back at his desk approves in the Browser Wallet → event in both "My calendar" views | Consent record (account = X) + VAA; two `eventId`s |
 | S7 | NT1–NT11 all rejected with the codes above | evil-peer report: 11/11 pass |
 | S8 | Audit anchor + VAAs found on chain | Transaction hashes resolve in a testnet explorer; hash chain verifies |
 
