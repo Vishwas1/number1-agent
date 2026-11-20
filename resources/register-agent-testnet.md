@@ -18,6 +18,84 @@ CIS-8 External Key Registry: <12801,0>
 MCP endpoint: https://agent-registry-mcp.concordium.com/mcp
 ```
 
+## Optional: Use `ccd-agent-kit`
+
+`ccd-agent-kit` splits responsibilities across small packages:
+
+- `@ccd-agent-kit/ccd-config-manager`: local setup for networks, account labels, signing keys, signer storage, and account credential refresh. It does not sign.
+- `@ccd-agent-kit/ccd-signer`: local signing runtime. It can run as `ccd-signer-mcp` and also has a `ccd-signer` CLI.
+- `@ccd-agent-kit/ccd-chain-client`: MCP server for chain queries, unsigned transaction building, transaction completion, and explicit submission. It does not sign and has no human transaction CLI.
+
+Install the packages you need:
+
+```bash
+npm install --global \
+  @ccd-agent-kit/ccd-config-manager \
+  @ccd-agent-kit/ccd-signer \
+  @ccd-agent-kit/ccd-chain-client
+```
+
+Node.js `>=22.23.4` is required. The signer and config manager packages use native PC/SC dependencies, even for software-key setup, so install your platform's native build tools and PC/SC development libraries first.
+
+For a software-key setup, initialize encrypted storage, import a wallet-export key, and refresh account credentials:
+
+```bash
+ccd-config-manager storage init --storage encrypted-file
+
+ccd-config-manager signing-key import --backend software \
+  --file /ABSOLUTE/PATH/TO/wallet-export.json \
+  --label testnet-agent-owner
+
+ccd-config-manager account credentials refresh \
+  --address YOUR_TESTNET_ACCOUNT \
+  --network testnet
+```
+
+Start the local MCP servers from your MCP client. A typical host config has the hosted Agent Registry MCP plus the local signer and chain client:
+
+```json
+{
+  "mcpServers": {
+    "concordium-agent-registry": {
+      "url": "https://agent-registry-mcp.concordium.com/mcp"
+    },
+    "ccd-signer": {
+      "command": "/ABSOLUTE/PATH/TO/ccd-signer-mcp",
+      "env": {
+        "CCD_NETWORK": "testnet"
+      }
+    },
+    "ccd-chain-client": {
+      "command": "/ABSOLUTE/PATH/TO/ccd-chain-client-mcp",
+      "env": {
+        "CCD_NETWORK": "testnet"
+      }
+    }
+  }
+}
+```
+
+If you installed the packages inside a project instead of globally, use the binaries in `node_modules/.bin`.
+
+The package workflow for registration is:
+
+1. Use the hosted Agent Registry MCP `build_register` tool to get `contract_address`, `receive_name`, `parameter_hex`, and `suggested_energy`.
+2. Use `ccd-chain-client`'s `build_update_contract` tool to build an unsigned contract-update transaction from those fields.
+3. Use `ccd-signer`'s `describe_transaction` or CLI `ccd-signer describe` to review the unsigned transaction.
+4. Use `ccd-signer`'s `sign_transaction` tool, or the CLI `ccd-signer sign`, to produce detached sender signatures.
+5. Use `ccd-chain-client`'s `complete_transaction` tool to combine signatures and submit. Submission is explicit; keep it disabled while reviewing.
+
+Useful local checks:
+
+```bash
+ccd-config-manager network list
+ccd-config-manager network inspect --name testnet
+ccd-config-manager signing-key list
+ccd-signer list-keys
+ccd-signer-mcp --help
+ccd-chain-client-mcp --help
+```
+
 ## 1. Create an Agent Card
 
 If you already have an Agent Card JSON, host it at a stable URL such as:
@@ -112,12 +190,7 @@ energy: suggested_energy from build_register
 sender: YOUR_TESTNET_ACCOUNT
 ```
 
-With `ccd-agent-kit`, the rough split is:
-
-- `ccd-signer`: signs using locally controlled keys.
-- `ccd-chain-client`: queries the chain and submits completed transaction artifacts.
-
-Follow the package README for your installed `ccd-agent-kit` release, because command names and release packaging can change.
+With `ccd-agent-kit`, use the package flow above: `build_update_contract` with `ccd-chain-client`, sign with `ccd-signer`, then `complete_transaction` with explicit submission.
 
 ## 4. Verify the Registration
 
